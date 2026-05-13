@@ -1,0 +1,80 @@
+services:
+  rust-exporter:
+    build: ./rust-exporter
+    container_name: rust-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+    networks:
+      - monitoring_net
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: victoriametrics
+    restart: unless-stopped
+    volumes:
+      - ./config/vmagent.yml:/etc/vmagent/scrape.yml:ro
+      - victoriametrics_data:/victoria-metrics-data
+    command:
+      - -promscrape.config=/etc/vmagent/scrape.yml
+      - -retentionPeriod=12
+    networks:
+      - monitoring_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8428/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: grafana
+    restart: unless-stopped
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_INSTALL_PLUGINS=
+      - GF_SERVER_ROOT_URL=https://system.estv.fr
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_TIMEZONE=Europe/Paris
+    networks:
+      - monitoring_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  caddy:
+    image: caddy:2.7
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    env_file:
+      - .env
+    networks:
+      - monitoring_net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  monitoring_net:
+    driver: bridge
+
+volumes:
+  victoriametrics_data:
+  grafana_data:
+  caddy_data:
+  caddy_config:

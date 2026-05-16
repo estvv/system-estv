@@ -33,7 +33,7 @@
 
         <header class="text-center mb-12">
             <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">System</h1>
-            <p class="text-xs text-neutral-400 mt-1 font-mono">{{GIT_HASH}}</p>
+            <p class="text-xs text-neutral-400 mt-1 font-mono"><span id="gitHash">--</span></p>
             <p id="last-update" class="text-sm text-neutral-400 mt-1">Connecting...</p>
         </header>
 
@@ -180,6 +180,16 @@
                 }
             }
         };
+
+        async function loadVersion() {
+            try {
+                const response = await fetch('version.json');
+                const data = await response.json();
+                document.getElementById('gitHash').textContent = data.gitHash || 'unknown';
+            } catch (error) {
+                document.getElementById('gitHash').textContent = 'unknown';
+            }
+        }
 
         function initCharts() {
             const cpuCtx = document.getElementById('cpu-chart').getContext('2d');
@@ -378,8 +388,10 @@
             }
         }
 
+        loadVersion();
         initCharts();
         fetchMetrics();
+
         setInterval(fetchMetrics, 2000);
     </script>
 </body>

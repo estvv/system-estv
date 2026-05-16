@@ -44,9 +44,9 @@ Caddy (host, 20MB) → rust-exporter (25MB) = ~45MB total
 ## 6. Network Topology
 
 ```
-Internet → Caddy (host, 80/443) → BasicAuth → 127.0.0.1:3001
+Internet → Caddy (host, 80/443) → BasicAuth → 127.0.0.1:8080
                                               ↓
-                                       rust-exporter:3000
+                                        rust-exporter (network: host)
                                               │
                                        ┌──────┴──────┐
                                        │ Background  │
@@ -70,7 +70,7 @@ Internet → Caddy (host, 80/443) → BasicAuth → 127.0.0.1:3001
 
 ## 7. Security Model
 
-- **rust-exporter**: Exposed only on localhost (127.0.0.1:3001), no authentication
+- **rust-exporter**: Exposed only on localhost (127.0.0.1:8080), no authentication
 - **Caddy**: Single ingress point, handles BasicAuth and TLS
 - **Container**: Non-root user (65534), read-only mounts for /proc and /sys
 - **No data persistence**: All metrics reset on restart
@@ -124,9 +124,9 @@ docker compose up -d
 ### Health Check
 
 ```bash
-curl -f http://127.0.0.1:3001/health
+curl -f http://127.0.0.1:8080/health
 ```
 
 ### Access
 
-Navigate to `https://system.estv.fr` (Caddy proxies to `127.0.0.1:3001`)
+Navigate to `https://system.estv.fr` (Caddy proxies to `127.0.0.1:8080`)

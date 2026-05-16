@@ -1,29 +1,44 @@
 # system-estv
 
-Lightweight self-hosted monitoring stack for a single VPS. Exposes CPU, RAM, and disk metrics via a custom Rust exporter, stores time-series data in VictoriaMetrics, and visualizes through Grafana—all behind Caddy with automatic HTTPS and BasicAuth.
+Ultra-lightweight, self-hosted monitoring dashboard for a VPS. Single Rust binary with embedded frontend provides real-time CPU, RAM, SWAP, disk, network, and process metrics. Optimized for low-memory environments running local LLMs.
 
 ## Architecture
 
 ```
-Internet → Caddy (443) → BasicAuth → Grafana → VictoriaMetrics → rust-exporter
+Host /proc & /sys (read-only)
+        ↓
+rust-exporter (collects every 2s)
+        ↓ in-memory history (60 points)
+/api/metrics (JSON)
+        ↓
+Browser polls every 2s
+        ↓
+Tailwind + Chart.js dashboard
 ```
 
 | Component | Purpose | RAM |
 |-----------|---------|-----|
-| rust-exporter | Custom metrics collector (Rust + axum) | <15MB |
-| VictoriaMetrics | Time-series database (Prometheus-compatible) | <100MB |
-| Grafana | Dashboard visualization | <80MB |
-| Caddy | Reverse proxy, TLS, authentication | <50MB |
+| rust-exporter | All-in-one: metrics collector + web server + embedded frontend | <25MB |
+| Caddy (host) | Reverse proxy with HTTPS and BasicAuth | <50MB |
 
-**Total**: ~250MB idle
+**Total**: ~75MB idle (saves ~175MB vs VictoriaMetrics + Grafana stack)
+
+## Features
+
+- **Real-time Metrics**: CPU %, RAM, SWAP, Disk, Network I/O, Processes, Uptime
+- **CPU Temperature**: Thermal sensor reading (when available)
+- **Top 5 Processes**: Ranked by CPU usage with RAM consumption
+- **Live Charts**: System activity, network traffic, memory usage
+- **Zero Dependencies**: Tailwind CSS and Chart.js via CDN
+- **Embedded Frontend**: Single binary, no static file serving needed
 
 ## Quick Start
 
 ### Prerequisites
 
 - Docker + Docker Compose
+- Caddy installed on host (for HTTPS + BasicAuth)
 - Domain pointing to VPS (`system.estv.fr`)
-- Ports 80/443 available
 
 ### Deploy
 
@@ -32,90 +47,110 @@ Internet → Caddy (443) → BasicAuth → Grafana → VictoriaMetrics → rust-
 git clone https://github.com/yourorg/system-estv.git
 cd system-estv
 
-# 2. Generate BasicAuth password hash
-docker run --rm caddy:latest caddy hash-password --plaintext 'YOUR_PASSWORD'
-# Copy the output hash
-
-# 3. Update caddy/Caddyfile - replace BCRYPT_HASH with generated hash
-
-# 4. Build and start
+# 2. Build and start
 docker compose build
 docker compose up -d
 
-# 5. Verify services
+# 3. Verify
 docker compose ps
-docker compose exec rust-exporter curl http://localhost:8080/health
+curl http://127.0.0.1:8080/health
 
-# 6. Access Grafana
+# 4. Configure Caddy (example)
+# system.estv.fr {
+#     basicauth * {
+#         admin $2a$14$YOUR_BCRYPT_HASH
+#     }
+#     reverse_proxy 127.0.0.1:8080
+# }
+
+# 5. Access dashboard
 # Visit https://system.estv.fr
-# Login with BasicAuth credentials
 ```
 
 ## Configuration
 
-### BasicAuth
+### Caddy BasicAuth
 
-Edit `caddy/Caddyfile`:
+Generate hash on host:
+```bash
+caddy hash-password --plaintext 'YOUR_PASSWORD'
+```
 
+Add to Caddyfile:
 ```caddy
-basicauth * {
-    admin $2a$14$YOUR_BCRYPT_HASH_HERE
+system.estv.fr {
+    basicauth * {
+        admin $2a$14$YOUR_HASH_HERE
+    }
+    reverse_proxy 127.0.0.1:8080
 }
 ```
 
-Generate hash:
-```bash
-docker exec caddy caddy hash-password --plaintext 'YOUR_PASSWORD'
+### Polling Interval
+
+Edit `rust-exporter/src/collector.rs`:
+```rust
+tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 ```
 
-### Grafana Datasource
-
-Grafana auto-connects to VictoriaMetrics at `http://victoriametrics:8428`. No manual configuration needed if using the provided `docker-compose.yml`.
-
-### Scrape Interval
-
-Edit `config/vmagent.yml`:
-
-```yaml
-global:
-  scrape_interval: 10s  # Adjust as needed
+Update frontend `index.html`:
+```javascript
+setInterval(fetchMetrics, 2000);
 ```
 
-### Metrics Retention
+### History Length
 
-Edit `docker-compose.yml` VictoriaMetrics command:
-
-```yaml
-command:
-  - -retentionPeriod=12  # Months (default: 12)
+Edit `rust-exporter/src/state.rs`:
+```rust
+pub const HISTORY_LENGTH: usize = 60;
 ```
 
 ## Exposed Metrics
 
-rust-exporter provides Prometheus-compatible metrics:
+JSON API at `/api/metrics`:
 
-| Metric | Type | Description |
-|--------|------|-------------|
-| `sys_cpu_usage_percent` | gauge | CPU utilization (0-100) |
-| `sys_mem_used_bytes` | gauge | RAM used |
-| `sys_mem_total_bytes` | gauge | Total RAM |
-| `sys_processes_total` | gauge | Total number of processes |
-| `sys_disk_free_bytes` | gauge | Free disk space (per mount) |
-| `sys_network_rx_bytes_total` | counter | Network bytes received (cumulative) |
-| `sys_network_tx_bytes_total` | counter | Network bytes transmitted (cumulative) |
-| `sys_uptime_seconds` | gauge | System uptime in seconds |
-
-Query examples:
-```promql
-# RAM usage percentage
-100 * sys_mem_used_bytes / sys_mem_total_bytes
-
-# Network download speed (bytes/sec)
-rate(sys_network_rx_bytes_total[1m])
-
-# Network upload speed (bytes/sec)
-rate(sys_network_tx_bytes_total[1m])
+```json
+{
+  "current": {
+    "cpu_percent": 23.5,
+    "ram_used_gb": 1.2,
+    "ram_total_gb": 3.8,
+    "ram_percent": 31.6,
+    "swap_used_gb": 0.5,
+    "swap_total_gb": 2.0,
+    "swap_percent": 25.0,
+    "disk_used_gb": 100.0,
+    "disk_total_gb": 200.0,
+    "disk_free_gb": 100.0,
+    "disk_percent": 50.0,
+    "processes": 89,
+    "uptime_secs": 86400,
+    "net_rx_mbps": 1.45,
+    "net_tx_mbps": 0.23,
+    "cpu_temp_celsius": 45.0,
+    "top_processes": [
+      {"name": "process1", "cpu_percent": 5.2, "ram_mb": 150}
+    ]
+  },
+  "history": {
+    "timestamps": [2, 4, 6, ...],
+    "cpu": [22.1, 23.5, ...],
+    "ram": [1.1, 1.2, ...],
+    "swap": [0.4, 0.5, ...],
+    "net_rx": [1.2, 1.45, ...],
+    "net_tx": [0.2, 0.23, ...],
+    "cpu_temp": [44.0, 45.0, ...]
+  }
+}
 ```
+
+## Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Dashboard (embedded HTML) |
+| `/api/metrics` | GET | Current metrics + history (JSON) |
+| `/health` | GET | Health check (200 OK) |
 
 ## Development
 
@@ -125,80 +160,67 @@ rate(sys_network_tx_bytes_total[1m])
 cd rust-exporter
 cargo run              # Run locally on :8080
 cargo test             # Run tests
+cargo clippy           # Lint
 cargo build --release  # Optimized build
 ```
 
 ### Rebuild Container
 
 ```bash
-docker compose build rust-exporter
-docker compose up -d rust-exporter
+docker compose build
+docker compose up -d
 ```
 
 ### View Logs
 
 ```bash
 docker compose logs -f rust-exporter
-docker compose logs -f victoriametrics
-docker compose logs -f grafana
-docker compose logs -f caddy
 ```
 
 ## Security
 
-- **No exposed ports**: rust-exporter, VictoriaMetrics, and Grafana run on internal Docker network only
-- **BasicAuth enforcement**: Caddy validates credentials before proxying to Grafana
-- **Read-only mounts**: `/proc` and `/sys` mounted read-only to rust-exporter
-- **Automatic HTTPS**: Caddy manages Let's Encrypt certificates
-
-## Maintenance
-
-### Backup
-
-```bash
-# Backup volumes
-docker run --rm -v victoriametrics_data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/victoriametrics.tar.gz /data
-docker run --rm -v grafana_data:/data -v $(pwd)/backup:/backup alpine tar czf /backup/grafana.tar.gz /data
-```
-
-### Restore
-
-```bash
-docker compose down
-docker run --rm -v victoriametrics_data:/data -v $(pwd)/backup:/backup alpine tar xzf /backup/victoriametrics.tar.gz -C /
-docker compose up -d
-```
-
-### Resource Monitoring
-
-```bash
-docker stats  # Real-time container resource usage
-```
+- **network_mode: host**: Required for accurate network I/O stats
+- **No persistent storage**: All metrics are in-memory, no data at rest
+- **Caddy handles auth**: rust-exporter has no authentication
+- **Read-only mounts**: `/proc` and `/sys` mounted read-only
 
 ## Troubleshooting
 
-### Metrics Not Appearing
+### Network Traffic Shows Zero
 
 ```bash
-# Check exporter
-docker compose exec rust-exporter curl http://localhost:8080/metrics
-
-# Check VictoriaMetrics targets
-docker compose exec victoriametrics curl http://localhost:8428/api/v1/targets
+# Verify host network mode is active
+docker inspect rust-exporter --format='{{.HostConfig.NetworkMode}}'
+# Should return: host
 ```
 
-### Grafana Can't Connect
+### Container Won't Start
 
 ```bash
-# Test internal connectivity
-docker compose exec grafana curl http://victoriametrics:8428/health
+docker compose logs rust-exporter
 ```
 
-### Certificate Issues
+### Metrics All Zero
+
+Verify read-only mounts exist:
+```yaml
+volumes:
+  - /proc:/proc:ro
+  - /sys:/sys:ro
+```
+
+### CPU Temperature Not Showing
+
+- VPS platforms often don't expose thermal sensors
+- The app gracefully handles missing sensors (`cpu_temp_celsius: null`)
+
+## Resource Monitoring
 
 ```bash
-docker compose logs caddy
+docker stats rust-exporter
 ```
+
+Expected: ~17-25MB RAM, <1% CPU idle
 
 ## Documentation
 

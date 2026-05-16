@@ -17,7 +17,7 @@
       basicauth * {
           <username> <bcrypt_hash>
       }
-      reverse_proxy 127.0.0.1:3001
+      reverse_proxy 127.0.0.1:8080
   }
   ```
 - [ ] Generate BasicAuth password hash if not set:
@@ -127,16 +127,15 @@
 
 ## Phase 7: Security Hardening
 
-- [ ] Verify no unexpected host ports:
+- [ ] Verify network mode:
   ```bash
-  docker compose ps
+  docker inspect rust-exporter --format='{{.HostConfig.NetworkMode}}'
   ```
-  Should only show: `127.0.0.1:3001->3000/tcp`
+  Expected: `host`
 
-- [ ] Test that direct access to 3001 requires localhost:
+- [ ] Test that direct access to 8080 works:
   ```bash
-  # From another machine (should fail):
-  curl http://<vps-ip>:3001/health
+  curl http://127.0.0.1:8080/health
   ```
 
 - [ ] Verify UFW/firewall rules (only 22, 80, 443 open):
@@ -154,12 +153,12 @@ docker compose logs rust-exporter
 
 Common issues:
 - Missing `/proc` or `/sys` mounts → verify docker-compose.yml volumes
-- Port 3001 in use → `lsof -i :3001` to find conflicting process
+- Port 8080 in use → `lsof -i :8080` to find conflicting process
 
 ### Dashboard Shows "Connection error"
 
 1. Verify container: `docker compose ps`
-2. Test health: `curl -f http://127.0.0.1:3001/health`
+2. Test health: `curl -f http://127.0.0.1:8080/health`
 3. Check browser console (F12) for JavaScript errors
 4. Verify Caddy proxy: `caddy validate --config /etc/caddy/Caddyfile` (on host)
 

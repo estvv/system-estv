@@ -18,8 +18,8 @@
                                 ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    rust-exporter (All-in-One)                   │
-│                    Container Port: 3000                          │
-│                    Host Binding: 127.0.0.1:3001                   │
+│                    Container Port: 8080                          │
+│                    Network Mode: host                             │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐  │
 │  │  Background Collector (2s interval)                      │  │
@@ -124,13 +124,13 @@
 
 **Configuration**:
 - Caddy is installed on host OS (not containerized)
-- Proxies `https://system.estv.fr` → `http://127.0.0.1:3001`
+- Proxies `https://system.estv.fr` → `http://127.0.0.1:8080`
 - Enforces BasicAuth before forwarding requests
 
 **Routes**:
 | Domain | Target | Auth |
 |--------|--------|------|
-| system.estv.fr | 127.0.0.1:3001 | BasicAuth required |
+| system.estv.fr | 127.0.0.1:8080 | BasicAuth required |
 
 **Security Headers**: Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options
 
@@ -184,7 +184,7 @@
 ```
 User → https://system.estv.fr
      → Caddy validates BasicAuth
-     → Caddy proxies to 127.0.0.1:3001
+     → Caddy proxies to 127.0.0.1:8080
      → rust-exporter serves embedded index.html
      → Dashboard polls /api/metrics every 2s
 ```
@@ -248,17 +248,17 @@ All metrics are stored in-memory:
 ### 9.1 Health Check
 
 ```bash
-curl -f http://127.0.0.1:3001/health
+curl -f http://127.0.0.1:8080/health
 # Returns: 200 OK (empty body)
 ```
 
 ### 9.2 Test Dashboard
 
 ```bash
-curl http://127.0.0.1:3001/
+curl http://127.0.0.1:8080/
 # Returns: HTML content
 
-curl http://127.0.0.1:3001/api/metrics | jq
+curl http://127.0.0.1:8080/api/metrics | jq
 # Returns: JSON with current metrics and history
 ```
 

@@ -21,17 +21,17 @@
 ```bash
 docker compose up -d              # Start all services
 docker compose build              # Build rust-exporter image
-docker compose logs -f <service> # Follow logs (rust-exporter, victoriametrics, grafana, caddy)
+docker compose logs -f rust-exporter  # Follow logs
 docker compose down               # Stop all services
-docker compose down -v            # Stop and remove volumes (data loss!)
 ```
 
 ### Development (Rust - Local)
 
 ```bash
 cd rust-exporter
-cargo run                         # Run locally (requires Rust toolchain)
+cargo run                         # Run locally on :8080 (requires Rust toolchain)
 cargo test                        # Run unit tests
+cargo clippy                      # Lint check
 cargo build --release             # Build optimized binary
 ```
 
@@ -40,19 +40,16 @@ cargo build --release             # Build optimized binary
 ```bash
 docker compose ps                 # Check container status
 docker stats                      # Real-time resource usage
-docker compose exec rust-exporter curl http://localhost:8080/health      # Health check
-docker compose exec rust-exporter curl http://localhost:8080/metrics     # Raw metrics
-docker compose exec victoriametrics curl http://localhost:8428/health     # VM health
-docker compose exec victoriametrics curl 'http://localhost:8428/api/v1/query?query=up'  # Query metrics
-docker compose exec grafana curl http://localhost:3000/api/health         # Grafana health
-docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile   # Validate Caddy config
+curl http://127.0.0.1:8080/health      # Health check
+curl http://127.0.0.1:8080/api/metrics # Raw metrics (JSON)
+curl http://127.0.0.1:8080/            # Dashboard HTML
 ```
 
 ### Before Committing
 
 ```bash
 docker compose build && docker compose up -d  # Verify build starts correctly
-docker compose exec rust-exporter curl http://localhost:8080/health  # Verify exporter works
+curl http://127.0.0.1:8080/health             # Verify exporter works
 ```
 
 Or for Rust changes:
@@ -65,48 +62,49 @@ cd rust-exporter && cargo test && cargo clippy
 
 ## Architecture
 
-Containerized monitoring stack with internal network isolation.
+Single-container monitoring dashboard with embedded frontend.
 
 ### Service Stack
 
 ```
-Caddy (ingress) → Grafana (ui) → VictoriaMetrics (tsdb) → rust-exporter (metrics)
+Caddy (host) → rust-exporter:8080 (dashboard + API)
 ```
 
 ### Data Flow
 
 ```
-rust-exporter:8080/metrics
-        ↓ (scraped every 10s)
-VictoriaMetrics:8428 (storage)
-        ↓ (queried via PromQL)
-Grafana:3000 (dashboards)
-        ↓ (proxied)
-Caddy:443 → system.estv.fr (public, BasicAuth required)
+Host /proc, /sys (read-only)
+        ↓
+rust-exporter (collects every 2s)
+        ↓
+Browser polls /api/metrics (every 2s)
+        ↓
+Chart.js renders live charts
 ```
 
 ### Key Files
 
 | File | Purpose |
 |------|---------|
-| `rust-exporter/src/main.rs` | Metrics collection logic |
-| `rust-exporter/Cargo.toml` | Rust dependencies (axum, sysinfo) |
-| `rust-exporter/Dockerfile` | Multi-stage build (Rust → scratch) |
-| `config/vmagent.yml` | VictoriaMetrics scrape config |
-| `docker-compose.yml` | Service orchestration |
-| `caddy/Caddyfile` | Reverse proxy + BasicAuth |
+| `rust-exporter/src/main.rs` | Entry point, spawns collector task |
+| `rust-exporter/src/collector.rs` | Background metrics collection loop |
+| `rust-exporter/src/state.rs` | AppState, LiveMetrics, History structs |
+| `rust-exporter/src/handlers.rs` | HTTP handlers (/, /api/metrics, /health) |
+| `rust-exporter/static/index.html` | Embedded frontend (Tailwind + Chart.js) |
+| `rust-exporter/Cargo.toml` | Rust dependencies (axum, sysinfo, serde) |
+| `rust-exporter/Dockerfile` | Multi-stage musl build |
+| `docker-compose.yml` | Single service with network_mode: host |
 
----300
+---
 
 ## Gotchas
 
-1. **runt-exporter must be built before `docker compose up`** - no pre-built image
-2. **VictoriaMetrics scrape target uses Docker DNS**: `rust-exporter:8080` (not localhost)
-3. **Grafana datasource URL**: `http://victoriametrics:8428` (internal Docker network)
-4. **BasicAuth must be set in Caddyfile** before first deployment
-5. **No ports exposed to host except Caddy (80/443)** - all internal communication via Docker network
-6. **Volumes persist data** - `docker compose down` does NOT delete data, use `docker compose down -v`
-7. **rust-exporter reads host metrics**: Docker container needs `/proc` and `/sys` mounted read-only
+1. **Network mode must be `host`** - Required to read actual host network I/O stats (not Docker's virtual bridge)
+2. **Port 8080 exposed on all interfaces** - Use firewall/Caddy to restrict external access
+3. **No persistent storage** - All metrics are in-memory, reset on container restart
+4. **CPU temperature may be None** - Not all VPS platforms expose thermal sensors
+5. **First 2 seconds show 0 MB/s** - Network speed requires delta calculation from previous tick
+6. **Read-only mounts required** - `/proc` and `/sys` must be mounted for sysinfo to work
 
 ---
 
@@ -122,17 +120,17 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`
 
 Examples:
 ```
-feat(exporter): add disk I/O metrics
-fix(caddy): correct BasicAuth hash format
-docs(readme): update deployment instructions
-chore(deps): update VictoriaMetrics to v1.100
+feat(exporter): add SWAP and CPU temperature metrics
+fix(network): use host network mode for accurate I/O stats
+docs(readme): update architecture diagram
+chore(deps): update sysinfo crate
 ```
 
 ### Branch Naming
 
 ```
-feature/add-temperature-metrics
-bugfix/fix-cpu-percentage-calculation
+feature/add-disk-io-metrics
+bugfix/fix-network-speed-calculation
 chore/update-base-image
 hotfix/security-patch
 ```
@@ -145,18 +143,16 @@ hotfix/security-patch
 |------------------------------|----------------------------------|
 | `docker-compose.yml` services | `documentation/ARCHITECTURE.md` |
 | `rust-exporter/src/*.rs`     | `documentation/ARCHITECTURE.md` |
-| `caddy/*.conf`               | `documentation/ARCHITECTURE.md` |
-| `config/*.yml`               | `documentation/ARCHITECTURE.md` |
+| `rust-exporter/static/*`     | `documentation/ARCHITECTURE.md` |
 
 ---
 
 ## Security Rules
 
-1. **Never expose rust-exporter, VictoriaMetrics, or Grafana ports to host** - only Caddy
-2. **Never commit BasicAuth passwords** - use environment variables or Docker secrets
-3. **Always use read-only mounts for system dirs** (`/proc`, `/sys`) in rust-exporter
-4. **Validate Caddyfile before restart** - syntax errors block all traffic
-5. **Keep VictoriaMetrics retention reasonable** - storage grows linearly with metrics volume
+1. **Port 8080 on host network** - Use Caddy or firewall to restrict access
+2. **Never commit secrets** - Use environment variables for passwords
+3. **Read-only mounts for /proc and /sys** - Container must not write to system dirs
+4. **Caddy handles authentication** - rust-exporter has no auth, relies on reverse proxy
 
 ---
 
@@ -166,16 +162,13 @@ Target resource usage (idle):
 
 | Service | RAM Target |
 |---------|------------|
-| rust-exporter | <15MB |
-| VictoriaMetrics | <100MB |
-| Grafana | <80MB |
-| Caddy | <50MB |
-| **Total** | <250MB |
+| rust-exporter | <25MB |
+| Caddy (host) | <50MB |
+| **Total** | <75MB |
 
 If RAM exceeds targets:
 - Check for memory leaks in rust-exporter
-- Reduce VictoriaMetrics retention period
-- Limit Grafana dashboard refresh intervals
+- Reduce history length in `state.rs` (HISTORY_LENGTH)
 
 ---
 
@@ -186,70 +179,90 @@ If RAM exceeds targets:
 Before adding any new feature, update `documentation/TODO.md` with:
 
 1. **Feature description** - What it adds/changes
-2. **Affected components** - Which services/files change
-3. **Security impact** - New ports, authentication, data exposure
+2. **Affected components** - Which files change
+3. **Security impact** - New endpoints, authentication, data exposure
 4. **Resource impact** - RAM/CPU/storage estimates
 
 ### Implementation Rules
 
 | Rule | Reason |
 |------|--------|
-| No new host ports | Only Caddy exposes to public (Security Rule #1) |
-| Use existing Docker network | New services must join `monitoring_net` |
+| Test locally first | `cargo test && cargo clippy` before docker build |
 | Document in ARCHITECTURE.md | Required per "When Adding New Files" |
-| Test locally before compose | `cargo test` or `docker compose build && docker compose up -d` |
-| Update AGENTS.md if needed | New commands, gotchas, or security rules |
+| Keep RAM under 25MB | Memory-constrained VPS environment |
+| Use host network mode | Required for accurate network stats |
 
 ### Validation Steps
 
 After implementing a new feature:
 
 1. **Build test**: `docker compose build` must succeed
-2. **Runtime test**: `docker compose up -d` must start all containers
-3. **Health check**: All health endpoints must return 200
-   ```bash
-   docker compose exec rust-exporter curl -f http://localhost:8080/health
-   docker compose exec victoriametrics curl -f http://localhost:8428/health
-   docker compose exec grafana curl -f http://localhost:3000/api/health
-   ```
-4. **Port audit**: `docker compose ps` - no unexpected host port bindings
-5. **Resource check**: `docker stats` - total RAM < 250MB target
-6. **Security review**: Verify no secrets committed, no new public endpoints
+2. **Runtime test**: `docker compose up -d` must start container
+3. **Health check**: `curl -f http://127.0.0.1:8080/health` returns 200
+4. **API test**: `curl http://127.0.0.1:8080/api/metrics | jq` returns valid JSON
+5. **Resource check**: `docker stats` - RAM < 30MB
+6. **Network check**: `docker inspect rust-exporter --format='{{.HostConfig.NetworkMode}}'` returns "host"
 
 ### Common Feature Types
 
-#### Adding a New Metric to rust-exporter
+#### Adding a New Metric
 
-1. Edit `rust-exporter/src/main.rs`
-2. Add metric to `get_metrics()` function
-3. Update `documentation/ARCHITECTURE.md` → "Exposed Metrics" table
-4. Run `cargo test && cargo clippy`
-5. Rebuild: `docker compose build rust-exporter`
-6. Restart: `docker compose up -d rust-exporter`
-7. Verify: `docker compose exec rust-exporter curl http://localhost:8080/metrics | grep <new_metric>`
+1. Edit `rust-exporter/src/state.rs` - add field to `LiveMetrics` struct
+2. Edit `rust-exporter/src/collector.rs` - collect the metric in `run_metrics_loop()`
+3. Edit `rust-exporter/static/index.html` - add display element
+4. Update `documentation/ARCHITECTURE.md` → "Metrics Collected" table
+5. Run `cd rust-exporter && cargo test && cargo clippy`
+6. Rebuild: `docker compose build`
+7. Restart: `docker compose up -d`
+8. Verify: `curl http://127.0.0.1:8080/api/metrics | jq '.current.<new_metric>'`
 
-#### Adding a New Service
+#### Adding a New Chart
 
-1. Add service to `docker-compose.yml` with `networks: [monitoring_net]`
-2. Ensure no `ports:` mapping to host (internal only)
-3. Update `documentation/ARCHITECTURE.md`:
-   - Service stack diagram
-   - Component details table
-   - Data flow (if applicable)
-4. Update `documentation/TODO.md` with health check commands
-5. Test: `docker compose up -d && docker compose ps`
+1. Edit `rust-exporter/static/index.html`
+2. Add `<canvas id="new-chart">` element
+3. Add Chart.js initialization in `<script>` section
+4. Add data series to `updateCharts()` function
+5. Rebuild: `docker compose build`
+6. Test: Visit dashboard and verify chart renders
 
-#### Adding a New Endpoint to Caddy
+#### Changing Polling Interval
 
-1. Edit `caddy/Caddyfile`
-2. Validate syntax: `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile`
-3. Reload: `docker compose restart caddy`
-4. Verify: `curl -I https://<new-endpoint>`
-5. Update `documentation/ARCHITECTURE.md` → Caddy routes table
+1. Edit `rust-exporter/src/collector.rs`
+2. Change `tokio::time::sleep(std::time::Duration::from_secs(2)).await`
+3. Update frontend: `setInterval(fetchMetrics, X)` in index.html
+4. Rebuild and restart
 
-#### Changing Scrape Configuration
+---
 
-1. Edit `config/vmagent.yml`
-2. Restart VictoriaMetrics: `docker compose restart victoriametrics`
-3. Verify targets: `docker compose exec victoriametrics curl http://localhost:8428/api/v1/targets`
-4. Update `documentation/ARCHITECTURE.md` if interval changes
+## Troubleshooting
+
+### Container Won't Start
+
+```bash
+docker compose logs rust-exporter
+```
+
+### Network Traffic Shows Zero
+
+```bash
+# Verify host network mode
+docker inspect rust-exporter --format='{{.HostConfig.NetworkMode}}'
+# Should return "host"
+```
+
+### Dashboard Shows "Connection error"
+
+1. Verify container: `docker compose ps`
+2. Test health: `curl -f http://127.0.0.1:8080/health`
+3. Check browser console for JavaScript errors
+
+### Metrics All Zero
+
+1. Check /proc and /sys mounts in docker-compose.yml are `:ro`
+2. Verify container can read: `docker compose exec rust-exporter ls /proc`
+
+### CPU Temperature Shows "--"
+
+- Not all systems expose CPU temperature sensors
+- VPS platforms often don't expose thermal data
+- The app gracefully handles missing sensors

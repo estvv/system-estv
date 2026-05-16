@@ -96,7 +96,7 @@ Caddy:443 → system.estv.fr (public, BasicAuth required)
 | `docker-compose.yml` | Service orchestration |
 | `caddy/Caddyfile` | Reverse proxy + BasicAuth |
 
----
+---300
 
 ## Gotchas
 

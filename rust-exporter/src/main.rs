@@ -20,11 +20,11 @@ async fn main() {
         .route("/health", get(handlers::health))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080")
         .await
-        .expect("Failed to bind to port 3000");
+        .expect("Failed to bind to port 8080");
 
-    println!("rust-exporter listening on 0.0.0.0:3000");
+    println!("rust-exporter listening on 0.0.0.0:8080");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())

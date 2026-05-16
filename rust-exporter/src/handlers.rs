@@ -9,10 +9,16 @@ use crate::state::{AppState, History, MetricsResponse};
 
 static INDEX_HTML: &str = include_str!("../static/index.html");
 
+pub fn get_git_hash() -> &'static str {
+    option_env!("GIT_HASH").unwrap_or("unknown")
+}
+
 pub async fn index() -> impl IntoResponse {
+    let git_hash = get_git_hash();
+    let html = INDEX_HTML.replace("{{GIT_HASH}}", git_hash);
     (
         [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-        Html(INDEX_HTML),
+        Html(html),
     )
 }
 

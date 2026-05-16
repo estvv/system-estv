@@ -117,6 +117,7 @@
 - `collector.rs`: Background tokio task collecting metrics every 2s
 - `handlers.rs`: HTTP route handlers for `/`, `/api/metrics`, `/health`
 - `state.rs`: Data structures for `LiveMetrics`, `HistoryPoint`, `History`
+- `build.rs`: Build script that embeds git commit hash at compile time
 
 ### 2.2 Caddy (Ingress Controller)
 

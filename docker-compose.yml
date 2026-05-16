@@ -1,6 +1,9 @@
 services:
   rust-exporter:
-    build: ./rust-exporter
+    build:
+      context: ./rust-exporter
+      args:
+        GIT_HASH: ${GIT_HASH:-unknown}
     container_name: rust-exporter
     restart: unless-stopped
     network_mode: host

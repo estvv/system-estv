@@ -2,9 +2,13 @@ FROM rust:1.82-alpine AS builder
 
 RUN apk add --no-cache musl-dev
 
+ARG GIT_HASH=unknown
+ENV GIT_HASH=$GIT_HASH
+
 WORKDIR /app
 
 COPY Cargo.toml ./
+COPY build.rs ./
 COPY src ./src
 COPY static ./static
 

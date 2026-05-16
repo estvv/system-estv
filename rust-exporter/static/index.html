@@ -35,47 +35,93 @@
                 <div class="flex items-center gap-3">
                     <div class="status-dot w-3 h-3 bg-emerald-400 rounded-full"></div>
                     <h1 class="text-2xl font-bold text-slate-100">System Monitor</h1>
+                    <span class="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">v0.3.0</span>
                 </div>
                 <div id="last-update" class="text-sm text-slate-400">Connecting...</div>
             </div>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
             <div class="glass rounded-xl p-4 glow">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">CPU Usage</div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">CPU</div>
+                </div>
                 <div class="flex items-end gap-2">
                     <span id="cpu-value" class="text-3xl font-bold text-cyan-400">--</span>
                     <span class="text-slate-500 text-sm mb-1">%</span>
                 </div>
-                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                     <div id="cpu-bar" class="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500" style="width: 0%"></div>
                 </div>
+                <div id="cpu-temp-container" class="mt-2 text-xs text-slate-500 hidden">
+                    <span id="cpu-temp" class="text-orange-400">--°C</span>
+                </div>
             </div>
 
             <div class="glass rounded-xl p-4 glow">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">RAM Used</div>
-                <div class="flex items-end gap-2">
-                    <span id="ram-value" class="text-3xl font-bold text-violet-400">--</span>
-                    <span id="ram-total" class="text-slate-500 text-sm mb-1">/ -- GB</span>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">RAM</div>
                 </div>
-                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                <div class="flex items-end gap-1">
+                    <span id="ram-value" class="text-2xl font-bold text-violet-400">--</span>
+                    <span class="text-slate-500 text-xs mb-0.5">/</span>
+                    <span id="ram-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
+                </div>
+                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                     <div id="ram-bar" class="h-full bg-gradient-to-r from-violet-500 to-violet-400 transition-all duration-500" style="width: 0%"></div>
                 </div>
+                <div class="mt-1 text-xs text-slate-500"><span id="ram-percent">--</span>% used</div>
             </div>
 
             <div class="glass rounded-xl p-4 glow">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Disk Free</div>
-                <div class="flex items-end gap-2">
-                    <span id="disk-value" class="text-3xl font-bold text-emerald-400">--</span>
-                    <span class="text-slate-500 text-sm mb-1">GB</span>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">SWAP</div>
                 </div>
-                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                <div class="flex items-end gap-1">
+                    <span id="swap-value" class="text-2xl font-bold text-orange-400">--</span>
+                    <span class="text-slate-500 text-xs mb-0.5">/</span>
+                    <span id="swap-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
+                </div>
+                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="swap-bar" class="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+                <div class="mt-1 text-xs text-slate-500"><span id="swap-percent">--</span>% used</div>
+            </div>
+
+            <div class="glass rounded-xl p-4 glow">
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">Disk</div>
+                </div>
+                <div class="flex items-end gap-1">
+                    <span id="disk-used" class="text-2xl font-bold text-emerald-400">--</span>
+                    <span class="text-slate-500 text-xs mb-0.5">/</span>
+                    <span id="disk-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
+                </div>
+                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                     <div id="disk-bar" class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
                 </div>
+                <div class="mt-1 text-xs text-slate-500"><span id="disk-percent">--</span>% used · <span id="disk-free">--</span> GB free</div>
             </div>
 
             <div class="glass rounded-xl p-4 glow">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Processes</div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">Processes</div>
+                </div>
                 <div class="flex items-end gap-2">
                     <span id="processes-value" class="text-3xl font-bold text-amber-400">--</span>
                 </div>
@@ -83,7 +129,12 @@
             </div>
 
             <div class="glass rounded-xl p-4 glow">
-                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Uptime</div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <div class="text-xs text-slate-400 uppercase tracking-wider">Uptime</div>
+                </div>
                 <div class="flex items-end gap-2">
                     <span id="uptime-value" class="text-3xl font-bold text-rose-400">--</span>
                 </div>
@@ -101,6 +152,9 @@
                     <div class="text-center">
                         <div class="text-xs text-slate-400 uppercase mb-1">Inbound</div>
                         <div class="flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+                            </svg>
                             <span id="net-rx-value" class="text-xl font-bold text-green-400">--</span>
                             <span class="text-slate-500 text-sm">MB/s</span>
                         </div>
@@ -108,6 +162,9 @@
                     <div class="text-center">
                         <div class="text-xs text-slate-400 uppercase mb-1">Outbound</div>
                         <div class="flex items-center justify-center gap-2">
+                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                            </svg>
                             <span id="net-tx-value" class="text-xl font-bold text-blue-400">--</span>
                             <span class="text-slate-500 text-sm">MB/s</span>
                         </div>
@@ -116,28 +173,58 @@
             </div>
 
             <div class="glass rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 mb-4">Memory & SWAP Usage</h2>
+                <div class="h-48">
+                    <canvas id="memory-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div class="glass rounded-xl p-6">
                 <h2 class="text-sm font-semibold text-slate-300 mb-4">System Activity</h2>
                 <div class="h-48">
                     <canvas id="system-chart"></canvas>
                 </div>
             </div>
-        </div>
 
-        <footer class="text-center text-xs text-slate-500 mt-8">
-            <span id="app-version">rust-exporter v0.2.0</span>
-        </footer>
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                    Top 5 Processes (by CPU)
+                </h2>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-slate-400 text-left border-b border-slate-700">
+                                <th class="pb-2 font-medium">Process</th>
+                                <th class="pb-2 font-medium text-right">CPU %</th>
+                                <th class="pb-2 font-medium text-right">RAM (MB)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="processes-table">
+                            <tr><td colspan="3" class="py-4 text-center text-slate-500">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
         const MAX_HISTORY = 60;
 
-        let systemChart, networkChart;
+        let systemChart, networkChart, memoryChart;
         let historyData = {
             timestamps: [],
             cpu: [],
             ram: [],
+            swap: [],
             net_rx: [],
-            net_tx: []
+            net_tx: [],
+            cpu_temp: []
         };
 
         const chartOptions = {
@@ -145,9 +232,7 @@
             maintainAspectRatio: false,
             animation: { duration: 0 },
             scales: {
-                x: {
-                    display: false
-                },
+                x: { display: false },
                 y: {
                     beginAtZero: true,
                     grid: { color: 'rgba(148, 163, 184, 0.1)' },
@@ -167,35 +252,21 @@
                 type: 'line',
                 data: {
                     labels: [],
-                    datasets: [
-                        {
-                            label: 'CPU %',
-                            data: [],
-                            borderColor: '#22d3ee',
-                            backgroundColor: 'rgba(34, 211, 238, 0.1)',
-                            tension: 0.3,
-                            fill: true,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'RAM GB',
-                            data: [],
-                            borderColor: '#a78bfa',
-                            backgroundColor: 'rgba(167, 139, 250, 0.1)',
-                            tension: 0.3,
-                            fill: true,
-                            pointRadius: 0
-                        }
-                    ]
+                    datasets: [{
+                        label: 'CPU %',
+                        data: [],
+                        borderColor: '#22d3ee',
+                        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                        tension: 0.3,
+                        fill: true,
+                        pointRadius: 0
+                    }]
                 },
                 options: {
                     ...chartOptions,
                     scales: {
                         ...chartOptions.scales,
-                        y: {
-                            ...chartOptions.scales.y,
-                            suggestedMax: 100
-                        }
+                        y: { ...chartOptions.scales.y, suggestedMax: 100 }
                     }
                 }
             });
@@ -228,6 +299,35 @@
                 },
                 options: chartOptions
             });
+
+            const memoryCtx = document.getElementById('memory-chart').getContext('2d');
+            memoryChart = new Chart(memoryCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'RAM GB',
+                            data: [],
+                            borderColor: '#a78bfa',
+                            backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'SWAP GB',
+                            data: [],
+                            borderColor: '#fb923c',
+                            backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: chartOptions
+            });
         }
 
         function formatUptime(secs) {
@@ -241,17 +341,34 @@
             return str;
         }
 
+        function truncateName(name, maxLen = 20) {
+            return name.length > maxLen ? name.substring(0, maxLen) + '...' : name;
+        }
+
         function updateGauges(data) {
             document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1);
             document.getElementById('cpu-bar').style.width = `${Math.min(data.cpu_percent, 100)}%`;
 
-            document.getElementById('ram-value').textContent = data.ram_used_gb.toFixed(2);
-            document.getElementById('ram-total').textContent = `/ ${data.ram_total_gb.toFixed(1)} GB`;
-            const ramPercent = (data.ram_used_gb / data.ram_total_gb) * 100;
-            document.getElementById('ram-bar').style.width = `${Math.min(ramPercent, 100)}%`;
+            if (data.cpu_temp_celsius !== null && data.cpu_temp_celsius !== undefined) {
+                document.getElementById('cpu-temp').textContent = `${data.cpu_temp_celsius.toFixed(1)}°C`;
+                document.getElementById('cpu-temp-container').classList.remove('hidden');
+            }
 
-            document.getElementById('disk-value').textContent = data.disk_free_gb.toFixed(1);
-            document.getElementById('disk-bar').style.width = '100%';
+            document.getElementById('ram-value').textContent = data.ram_used_gb.toFixed(2);
+            document.getElementById('ram-total').textContent = `${data.ram_total_gb.toFixed(1)} GB`;
+            document.getElementById('ram-percent').textContent = data.ram_percent.toFixed(1);
+            document.getElementById('ram-bar').style.width = `${Math.min(data.ram_percent, 100)}%`;
+
+            document.getElementById('swap-value').textContent = data.swap_used_gb.toFixed(2);
+            document.getElementById('swap-total').textContent = data.swap_total_gb > 0 ? `${data.swap_total_gb.toFixed(1)} GB` : '0 GB';
+            document.getElementById('swap-percent').textContent = data.swap_percent.toFixed(1);
+            document.getElementById('swap-bar').style.width = `${Math.min(data.swap_percent, 100)}%`;
+
+            document.getElementById('disk-used').textContent = data.disk_used_gb.toFixed(1);
+            document.getElementById('disk-total').textContent = `${data.disk_total_gb.toFixed(0)} GB`;
+            document.getElementById('disk-percent').textContent = data.disk_percent.toFixed(1);
+            document.getElementById('disk-free').textContent = data.disk_free_gb.toFixed(1);
+            document.getElementById('disk-bar').style.width = `${Math.min(data.disk_percent, 100)}%`;
 
             document.getElementById('processes-value').textContent = data.processes;
 
@@ -260,6 +377,17 @@
             document.getElementById('net-rx-value').textContent = data.net_rx_mbps.toFixed(2);
             document.getElementById('net-tx-value').textContent = data.net_tx_mbps.toFixed(2);
 
+            const tbody = document.getElementById('processes-table');
+            if (data.top_processes && data.top_processes.length > 0) {
+                tbody.innerHTML = data.top_processes.map((p, i) => `
+                    <tr class="border-b border-slate-700/50 ${i < data.top_processes.length - 1 ? '' : ''}">
+                        <td class="py-2 text-slate-200">${truncateName(p.name)}</td>
+                        <td class="py-2 text-right text-cyan-400 font-mono">${p.cpu_percent.toFixed(1)}%</td>
+                        <td class="py-2 text-right text-violet-400 font-mono">${p.ram_mb.toFixed(0)}</td>
+                    </tr>
+                `).join('');
+            }
+
             const now = new Date();
             document.getElementById('last-update').textContent = `Updated ${now.toLocaleTimeString()}`;
         }
@@ -267,13 +395,17 @@
         function updateCharts(history) {
             systemChart.data.labels = history.timestamps.map(t => t + 's');
             systemChart.data.datasets[0].data = history.cpu;
-            systemChart.data.datasets[1].data = history.ram;
             systemChart.update('none');
 
             networkChart.data.labels = history.timestamps.map(t => t + 's');
             networkChart.data.datasets[0].data = history.net_rx;
             networkChart.data.datasets[1].data = history.net_tx;
             networkChart.update('none');
+
+            memoryChart.data.labels = history.timestamps.map(t => t + 's');
+            memoryChart.data.datasets[0].data = history.ram;
+            memoryChart.data.datasets[1].data = history.swap;
+            memoryChart.update('none');
         }
 
         async function fetchMetrics() {

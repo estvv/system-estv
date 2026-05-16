@@ -3,8 +3,7 @@ services:
     build: ./rust-exporter
     container_name: rust-exporter
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3001:8080"
+    network_mode: host
     volumes:
       - /proc:/proc:ro
       - /sys:/sys:ro

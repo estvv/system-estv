@@ -2,7 +2,7 @@
 
 ## 1. Project Vision
 
-A self-hosted, ultra-lightweight monitoring dashboard optimized for minimal RAM usage on a single Hetzner VPS (4GB RAM). The system provides real-time hardware metrics visualization through a custom-built all-in-one Rust application, eliminating the need for heavy monitoring stacks like VictoriaMetrics and Grafana.
+A self-hosted, ultra-lightweight monitoring dashboard optimized for minimal RAM usage on a single Hetzner VPS (4GB RAM). The system provides real-time hardware metrics visualization through a custom-built all-in-one Rust application, eliminating the need for heavy monitoring stacks like VictoriaMetrics and Grafana. Designed specifically for LLM workloads with SWAP monitoring to track memory overflow.
 
 ## 2. Infrastructure
 
@@ -17,6 +17,7 @@ A self-hosted, ultra-lightweight monitoring dashboard optimized for minimal RAM 
 2. **Security First**: Caddy handles TLS/auth, container binds to localhost only
 3. **All-in-One**: Backend + frontend in single binary, no external dependencies
 4. **Zero Persistence**: All metrics in-memory, no database overhead
+5. **Network Accuracy**: Uses `network_mode: host` to read actual host network stats
 
 ## 4. Technology Stack
 
@@ -79,11 +80,17 @@ Internet → Caddy (host, 80/443) → BasicAuth → 127.0.0.1:3001
 | Metric | Source | Calculation |
 |--------|--------|-------------|
 | CPU Usage % | sysinfo | Global CPU average |
+| CPU Temperature | sysinfo::Components | Thermal sensor (if available) |
 | RAM Used/Total GB | sysinfo | Used/Total memory |
-| Disk Free GB | sysinfo | Available space on `/` |
+| RAM % Used | sysinfo | (Used/Total) × 100 |
+| SWAP Used/Total GB | sysinfo | Used/Total swap |
+| SWAP % Used | sysinfo | (Used/Total) × 100 |
+| Disk Used/Total/Free GB | sysinfo::Disks | Space on `/` mount |
+| Disk % Used | sysinfo | (Used/Total) × 100 |
 | Processes | sysinfo | Count of running processes |
+| Top 5 Processes | sysinfo | Sorted by CPU usage |
 | Uptime | sysinfo | System uptime seconds |
-| Network RX/TX MB/s | sysinfo | Delta bytes / elapsed time |
+| Network RX/TX MB/s | sysinfo::Networks | Delta bytes / elapsed time |
 
 **Network Speed Calculation** (critical for accuracy):
 ```

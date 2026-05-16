@@ -17,6 +17,6 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rust-exporter 
 
 USER 65534:65534
 
-EXPOSE 3000
+EXPOSE 8080
 
 ENTRYPOINT ["/rust-exporter"]

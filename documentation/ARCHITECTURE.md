@@ -82,18 +82,32 @@
     "cpu_percent": 23.5,
     "ram_used_gb": 1.2,
     "ram_total_gb": 3.8,
-    "disk_free_gb": 45.2,
+    "ram_percent": 31.5,
+    "swap_used_gb": 0.5,
+    "swap_total_gb": 2.0,
+    "swap_percent": 25.0,
+    "disk_used_gb": 100.0,
+    "disk_total_gb": 200.0,
+    "disk_free_gb": 100.0,
+    "disk_percent": 50.0,
     "processes": 89,
     "uptime_secs": 86400,
     "net_rx_mbps": 1.45,
-    "net_tx_mbps": 0.23
+    "net_tx_mbps": 0.23,
+    "cpu_temp_celsius": 45.0,
+    "top_processes": [
+      {"name": "process1", "cpu_percent": 5.2, "ram_mb": 150},
+      {"name": "process2", "cpu_percent": 3.1, "ram_mb": 80}
+    ]
   },
   "history": {
-    "timestamps": [0, 2, 4, 6, ...],
-    "cpu": [22.1, 23.5, 21.8, ...],
-    "ram": [1.1, 1.2, 1.15, ...],
-    "net_rx": [1.2, 1.45, 1.3, ...],
-    "net_tx": [0.2, 0.23, 0.18, ...]
+    "timestamps": [2, 4, 6, ...],
+    "cpu": [22.1, 23.5, ...],
+    "ram": [1.1, 1.2, ...],
+    "swap": [0.4, 0.5, ...],
+    "net_rx": [1.2, 1.45, ...],
+    "net_tx": [0.2, 0.23, ...],
+    "cpu_temp": [44.0, 45.0, ...]
   }
 }
 ```
@@ -124,9 +138,11 @@
 
 ### 3.1 Port Mapping
 
-| Service | Host Port | Container Port | Exposed |
-|---------|-----------|----------------|---------|
-| rust-exporter | 127.0.0.1:3001 | 3000 | localhost only |
+| Service | Host Binding | Container Port | Notes |
+|---------|--------------|----------------|-------|
+| rust-exporter | host network | 8080 | Uses `network_mode: host` |
+
+**Important**: With `network_mode: host`, the container shares the host's network namespace. This is required for accurate network I/O statistics. The container listens on `0.0.0.0:8080` inside the host's network.
 
 ### 3.2 Host Volume Mounts
 
@@ -140,21 +156,26 @@
 ### 4.1 Metrics Collection Flow
 
 ```
-1. Background Task (rust-exporter, every 2s)
-   ├─> Refreshes System struct via sysinfo
-   ├─> Calculates CPU%, RAM, Disk, Processes, Uptime
-   ├─> Calculates network speed:
-   │      curr_rx_bytes, curr_tx_bytes (from /proc/net)
-   │      delta = current - previous
+1. Background Task (every 2s)
+   ├─> Refreshes System, Components, Disks, Networks, Processes
+   ├─> CPU: Global CPU usage percentage
+   ├─> CPU Temp: From Components (thermal sensors)
+   ├─> RAM: Used/Total memory from sysinfo
+   ├─> SWAP: Used/Total swap from sysinfo
+   ├─> Disk: Used/Total/Free on "/" mount
+   ├─> Processes: Count + Top 5 by CPU usage
+   ├─> Uptime: System uptime seconds
+   ├─> Network: Aggregates ALL interfaces
+   │      delta_rx = current_rx - previous_rx
+   │      delta_tx = current_tx - previous_tx
    │      speed_mbps = (delta / elapsed_secs) / 1_000_000
-   ├─> Aggregates ALL network interfaces
    └─> Updates AppState:
           - Arc<RwLock<LiveMetrics>> (current snapshot)
-          - Arc<RwLock<VecDeque<HistoryPoint>>> (rolling history)
+          - Arc<RwLock<VecDeque<HistoryPoint>>> (rolling history 60 pts)
 
-2. Frontend Polling (index.html, every 2s)
+2. Frontend Polling (every 2s)
    ├─> GET /api/metrics → JSON response
-   ├─> Updates gauges: CPU, RAM, Disk, Processes, Uptime, Network Speed
+   ├─> Updates gauges: CPU, RAM, SWAP, Disk, Processes, Uptime, Temp, Network
    └─> Updates Chart.js line charts with history arrays
 ```
 
@@ -174,29 +195,23 @@ User → https://system.estv.fr
 
 | Vector | Mitigation |
 |--------|------------|
-| Public ports | Only 80/443 via Caddy |
-| Unauth'd access | BasicAuth at Caddy layer |
-| Container escape | Non-root container (user 65534) |
-| Host access | Read-only mounts for /proc, /sys |
+| Public access | Caddy on host enforces BasicAuth before proxying to localhost:8080 |
+| Container network | Read-only mounts for /proc and /sys |
 | Data exposure | No persistent data (in-memory only) |
 
-### 5.2 Authentication Flow
+### 5.2 Network Mode Considerations
 
-```
-GET https://system.estv.fr
-     │
-     ├─> Caddy receives request
-     ├─> Caddy checks BasicAuth header
-     │   ├── Valid → Proxy to 127.0.0.1:3001
-     │   └── Invalid/Missing → 401 Unauthorized
-     └─> rust-exporter serves dashboard
-```
+**`network_mode: host`**: The container uses the host's network stack directly.
 
-### 5.3 Container Security
+**Why this is needed**:
+- Network statistics (`/proc/net/dev`) must reflect the **host's** interfaces, not Docker's virtual bridge
+- Without host network, the container would only see its own isolated traffic (near zero)
+- This is critical for accurate network I/O monitoring on a VPS
 
-| Service | User | Capabilities | Read-Only Root |
-|---------|------|--------------|----------------|
-| rust-exporter | 65534:65534 | none | ✓ (scratch image) |
+**Security implications**:
+- The container has full network visibility (same as any process on host)
+- Port 8080 is accessible on all host interfaces
+- Caddy should proxy from localhost only, or firewall rules should restrict external access to 8080
 
 ## 6. Resource Estimates
 
@@ -285,7 +300,7 @@ docker compose logs rust-exporter
 ### Dashboard Shows "Connection error"
 
 1. Verify container is running: `docker compose ps`
-2. Check health: `curl -f http://127.0.0.1:3001/health`
+2. Check health: `curl -f http://127.0.0.1:8080/health`
 3. Verify Caddy is proxying: `curl -I https://system.estv.fr`
 4. Check browser console for JavaScript errors
 
@@ -294,6 +309,19 @@ docker compose logs rust-exporter
 1. Open browser dev tools → Network tab
 2. Check `/api/metrics` responses are successful (200 OK)
 3. Verify JSON contains non-empty `history` arrays
+
+### Network Traffic Shows Zero
+
+1. **Verify `network_mode: host` is set** in docker-compose.yml
+2. Check container network: `docker inspect rust-exporter --format='{{.HostConfig.NetworkMode}}'`
+   - Should return "host"
+3. Without host network mode, Docker's virtual bridge shows no traffic from the VPS
+
+### CPU Temperature Shows `null`
+
+- Not all systems expose CPU temperature sensors
+- The app gracefully handles missing sensors and displays "--" in the UI
+- On VPS environments, thermal sensors may not be available
 
 ### Metrics All Zero
 

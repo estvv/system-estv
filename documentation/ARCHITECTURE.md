@@ -15,187 +15,147 @@
 │                    - BasicAuth for system.estv.fr                │
 └─────────────────────────────────────────────────────────────────┘
                                 │
-                    ┌───────────┴───────────┐
-                    │                       │
-                    ▼                       ▼
-        ┌───────────────────┐    ┌──────────────────┐
-        │   Grafana:3000     │    │   (Reserved)     │
-        │ system.estv.fr     │    │                  │
-        └───────────────────┘    └──────────────────┘
-                    │
-                    ▼ internal queries
-        ┌───────────────────────────────────────────┐
-        │           monitoring_net (Docker)          │
-        │  ┌─────────────┐  ┌────────────────────┐ │
-        │  │ Grafana     │  │ VictoriaMetrics    │ │
-        │  │ :3000       │──│ :8428              │ │
-        │  └─────────────┘  └────────────────────┘ │
-        │                          │               │
-        │                          ▼ scrapes       │
-        │                   ┌──────────────┐      │
-        │                   │rust-exporter │      │
-        │                   │:8080/metrics │      │
-        │                   └──────────────┘      │
-        └───────────────────────────────────────────┘
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    rust-exporter (All-in-One)                   │
+│                    Container Port: 3000                          │
+│                    Host Binding: 127.0.0.1:3001                   │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Background Collector (2s interval)                      │  │
+│  │  - CPU Usage %                                            │  │
+│  │  - RAM Used/Total GB                                      │  │
+│  │  - Disk Free GB (/ mount)                                 │  │
+│  │  - Process Count                                          │  │
+│  │  - System Uptime                                          │  │
+│  │  - Network Speed (RX/TX MB/s)                             │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  In-Memory Storage (Arc<RwLock>)                         │  │
+│  │  - Live metrics (current snapshot)                        │  │
+│  │  - Rolling history (60 data points)                       │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │  Axum Web Server                                          │  │
+│  │  - GET /           → Embedded HTML dashboard              │  │
+│  │  - GET /api/metrics→ JSON (current + history)             │  │
+│  │  - GET /health     → Health check (200 OK)                │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## 2. Component Details
 
-### 2.1 rust-exporter (Custom Metrics Collector)
+### 2.1 rust-exporter (All-in-One Dashboard)
 
-**Purpose**: Lightweight system metrics exporter
+**Purpose**: Single-binary monitoring dashboard with embedded frontend
 
 **Technology Stack**:
-- Language: Rust (nightly for optimizations)
-- Web Framework: axum (minimal overhead)
-- System Info: sysinfo crate
-- Memory Target: <15MB RSS
+- Language: Rust (stable, musl target for scratch image)
+- Web Framework: axum (minimal overhead, async)
+- System Metrics: sysinfo crate
+- Memory Target: <25MB RSS
 
-**Exposed Metrics** (Prometheus format on `/metrics`):
-```
-# TYPE node_cpu_usage_percent gauge
-node_cpu_usage_percent{host="vps"} 12.5
+**Key Features**:
+- **Background Collection Loop**: Spawns on startup, runs every 2 seconds
+- **Network Speed Calculation**: Computes delta bytes / elapsed time in MB/s
+- **Rolling History**: Stores last 60 data points (2 minutes at 2s intervals)
+- **Zero External Dependencies**: All frontend assets (Tailwind, Chart.js) via CDN
+- **Embedded HTML**: Compiled into binary via `include_str!()`
 
-# TYPE node_memory_used_bytes gauge
-node_memory_used_bytes{host="vps"} 2147483648
+**Endpoints**:
 
-# TYPE node_memory_total_bytes gauge
-node_memory_total_bytes{host="vps"} 4294967296
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/` | GET | Serves embedded index.html (Tailwind + Chart.js dashboard) |
+| `/api/metrics` | GET | Returns JSON with current metrics + history arrays |
+| `/health` | GET | Health check endpoint (returns 200 OK) |
 
-# TYPE node_disk_used_bytes gauge
-node_disk_used_bytes{host="vps",mount="/"} 107374182400
-
-# TYPE node_disk_total_bytes gauge
-node_disk_total_bytes{host="vps",mount="/"} 214748364800
-```
-
-**NEW: Exposed Metrics** (Prometheus format on `/metrics`):
-```
-# CPU (gauge)
-sys_cpu_usage_percent{host="vps"} 12.5
-
-# Memory (gauge)
-sys_mem_used_bytes{host="vps"} 2147483648
-sys_mem_total_bytes{host="vps"} 4294967296
-
-# Processes (gauge)
-sys_processes_total{host="vps"} 156
-
-# Disk (gauge - all mountpoints)
-sys_disk_free_bytes{host="vps",mount="/"} 107374182400
-
-# Network I/O (counter - cumulative bytes)
-sys_network_rx_bytes_total{host="vps",interface="eth0"} 1548593845
-sys_network_tx_bytes_total{host="vps",interface="eth0"} 20485739
-
-# Uptime (gauge)
-sys_uptime_seconds{host="vps"} 86400
+**JSON Response Format (`GET /api/metrics`)**:
+```json
+{
+  "current": {
+    "cpu_percent": 23.5,
+    "ram_used_gb": 1.2,
+    "ram_total_gb": 3.8,
+    "disk_free_gb": 45.2,
+    "processes": 89,
+    "uptime_secs": 86400,
+    "net_rx_mbps": 1.45,
+    "net_tx_mbps": 0.23
+  },
+  "history": {
+    "timestamps": [0, 2, 4, 6, ...],
+    "cpu": [22.1, 23.5, 21.8, ...],
+    "ram": [1.1, 1.2, 1.15, ...],
+    "net_rx": [1.2, 1.45, 1.3, ...],
+    "net_tx": [0.2, 0.23, 0.18, ...]
+  }
+}
 ```
 
-**Endpoint**: `GET /metrics` → Prometheus text format
+**Internal Architecture**:
+- `AppState`: Shared state with `RwLock` for concurrent read/write
+- `collector.rs`: Background tokio task collecting metrics every 2s
+- `handlers.rs`: HTTP route handlers for `/`, `/api/metrics`, `/health`
+- `state.rs`: Data structures for `LiveMetrics`, `HistoryPoint`, `History`
 
-**Internal Port**: 8080 (Docker network only, never exposed to host)
-
-### 2.2 VictoriaMetrics (Time-Series Database)
-
-**Purpose**: Prometheus-compatible metrics storage
-
-**Advantages over Prometheus**:
-- ~7x less RAM usage
-- Single binary, no dependencies
-- Drop-in replacement for Prometheus
-- Built-in data deduplication and compression
-
-**Configuration**:
-- Scrape interval: 10 seconds
-- Retention: 1 year (configurable)
-- Storage: Docker named volume `victoriametrics_data`
-
-**Key Endpoints** (internal only):
-- `GET /metrics/vm` → Metrics about VictoriaMetrics itself
-- `GET /api/v1/query` → PromQL queries
-- `GET /api/v1/query_range` → Range queries for Grafana
-
-**Startup Flags**:
-- `-promscrape.config=/etc/vmagent/scrape.yml`
-- `-retentionPeriod=12`
-- `-storageDataPath=/victoria-metrics-data`
-
-### 2.3 Grafana (Visualization Layer)
-
-**Purpose**: Dashboard rendering and querying
-
-**Configuration**:
-- Pre-configured datasource: VictoriaMetrics at `http://victoriametrics:8428`
-- Pre-configured dashboards: System overview (CPU/RAM/Disk)
-- Anonymous access: Disabled
-- Admin password: Auto-generated on first run (check logs)
-
-**Internal Port**: 3000 (proxied via Caddy)
-
-**Storage**: Docker named volume `grafana_data`
-
-### 2.4 Caddy (Ingress Controller)
+### 2.2 Caddy (Ingress Controller)
 
 **Purpose**: TLS termination, reverse proxy, authentication
 
-**Features**:
-- Automatic HTTPS via Let's Encrypt
-- HTTP→HTTPS redirect
-- BasicAuth enforcement for protected routes
-- Zero-downtime config reload
+**Configuration**:
+- Caddy is installed on host OS (not containerized)
+- Proxies `https://system.estv.fr` → `http://127.0.0.1:3001`
+- Enforces BasicAuth before forwarding requests
 
 **Routes**:
 | Domain | Target | Auth |
 |--------|--------|------|
-| system.estv.fr | grafana:3000 | BasicAuth required |
+| system.estv.fr | 127.0.0.1:3001 | BasicAuth required |
 
 **Security Headers**: Strict-Transport-Security, X-Frame-Options, X-Content-Type-Options
 
 ## 3. Network Architecture
 
-### 3.1 Docker Networks
-
-| Network Name | Driver | Scope | Purpose |
-|--------------|--------|-------|---------|
-| monitoring_net | bridge | local | Internal service communication |
-| caddy_net | bridge | local | Caddy ↔ backend services |
-
-### 3.2 Port Mapping
+### 3.1 Port Mapping
 
 | Service | Host Port | Container Port | Exposed |
 |---------|-----------|----------------|---------|
-| Caddy | 80, 443 | 80, 443 | ✓ (public ingress) |
-| rust-exporter | - | 8080 | ✗ (internal only) |
-| VictoriaMetrics | - | 8428 | ✗ (internal only) |
-| Grafana | - | 3000 | ✗ (internal only) |
+| rust-exporter | 127.0.0.1:3001 | 3000 | localhost only |
 
-### 3.3 Service Discovery
+### 3.2 Host Volume Mounts
 
-All services communicate via Docker DNS:
-- `rust-exporter` → `http://rust-exporter:8080/metrics`
-- `victoriametrics` → `http://victoriametrics:8428`
-- `grafana` → `http://grafana:3000`
+| Host Path | Container Path | Purpose |
+|-----------|----------------|---------|
+| `/proc` | `/proc` | Process/system metrics (read-only) |
+| `/sys` | `/sys` | System metrics (read-only) |
 
 ## 4. Data Flow
 
 ### 4.1 Metrics Collection Flow
 
 ```
-1. rust-exporter
-   └─> Polls sysinfo every 1s (internal cache)
-   └─> Exposes latest metrics on GET /metrics
+1. Background Task (rust-exporter, every 2s)
+   ├─> Refreshes System struct via sysinfo
+   ├─> Calculates CPU%, RAM, Disk, Processes, Uptime
+   ├─> Calculates network speed:
+   │      curr_rx_bytes, curr_tx_bytes (from /proc/net)
+   │      delta = current - previous
+   │      speed_mbps = (delta / elapsed_secs) / 1_000_000
+   ├─> Aggregates ALL network interfaces
+   └─> Updates AppState:
+          - Arc<RwLock<LiveMetrics>> (current snapshot)
+          - Arc<RwLock<VecDeque<HistoryPoint>>> (rolling history)
 
-2. VictoriaMetrics
-   └─> Scrapes http://rust-exporter:8080/metrics every 10s
-   └─> Stores time-series data in /victoria-metrics-data
-   └─> Compresses and deduplicates data automatically
-
-3. Grafana
-   └─> User queries dashboard
-   └─> Grafana sends PromQL query to VictoriaMetrics
-   └─> VictoriaMetrics returns time-series data
-   └─> Grafana renders visualization
+2. Frontend Polling (index.html, every 2s)
+   ├─> GET /api/metrics → JSON response
+   ├─> Updates gauges: CPU, RAM, Disk, Processes, Uptime, Network Speed
+   └─> Updates Chart.js line charts with history arrays
 ```
 
 ### 4.2 User Request Flow
@@ -203,9 +163,9 @@ All services communicate via Docker DNS:
 ```
 User → https://system.estv.fr
      → Caddy validates BasicAuth
-     → Caddy proxies to grafana:3000
-     → Grafana serves dashboard
-     → Dashboard queries VictoriaMetrics for data
+     → Caddy proxies to 127.0.0.1:3001
+     → rust-exporter serves embedded index.html
+     → Dashboard polls /api/metrics every 2s
 ```
 
 ## 5. Security Model
@@ -214,112 +174,145 @@ User → https://system.estv.fr
 
 | Vector | Mitigation |
 |--------|------------|
-| Public ports | Only 80/443 exposed via Caddy |
+| Public ports | Only 80/443 via Caddy |
 | Unauth'd access | BasicAuth at Caddy layer |
-| Container escape | Non-root containers, minimal capabilities |
-| Data exfiltration | No volumes mounted to host paths |
-| Lateral movement | Internal network isolation |
+| Container escape | Non-root container (user 65534) |
+| Host access | Read-only mounts for /proc, /sys |
+| Data exposure | No persistent data (in-memory only) |
 
 ### 5.2 Authentication Flow
 
 ```
 GET https://system.estv.fr
-    │
-    ├─> Caddy receives request
-    ├─> Caddy checks BasicAuth header
-    │   ├── Valid → Proxy to Grafana
-    │   └── Invalid/Missing → 401 Unauthorized
-    └─> Grafana never sees unauthenticated requests
+     │
+     ├─> Caddy receives request
+     ├─> Caddy checks BasicAuth header
+     │   ├── Valid → Proxy to 127.0.0.1:3001
+     │   └── Invalid/Missing → 401 Unauthorized
+     └─> rust-exporter serves dashboard
 ```
 
 ### 5.3 Container Security
 
 | Service | User | Capabilities | Read-Only Root |
 |---------|------|--------------|----------------|
-| rust-exporter | nonroot:65532 | none | ✓ |
-| VictoriaMetrics | victoriametrics | none | ✗ (data dir) |
-| Grafana | grafana | none | ✗ (data dir) |
-| Caddy | caddy | none | ✓ |
+| rust-exporter | 65534:65534 | none | ✓ (scratch image) |
 
 ## 6. Resource Estimates
 
 | Service | CPU | RAM (Idle) | RAM (Peak) | Disk I/O |
 |---------|-----|------------|------------|----------|
-| rust-exporter | 1m | 8MB | 15MB | Negligible |
-| VictoriaMetrics | 10m | 50MB | 100MB | Write-heavy on scrape |
-| Grafana | 10m | 40MB | 80MB | Read on dashboard load |
-| Caddy | 5m | 20MB | 50MB | Negligible |
-| **Total** | ~26m | ~120MB | ~245MB | — |
+| rust-exporter | 1m | 15MB | 25MB | Negligible |
+| Caddy (host) | 1m | <10MB | 20MB | Negligible |
+| **Total** | ~2m | ~25MB | ~45MB | — |
+
+**Comparison to Previous Stack**:
+- Before: rust-exporter (15MB) + VictoriaMetrics (100MB) + Grafana (80MB) = **~195MB**
+- After: rust-exporter (25MB) + Caddy (20MB) = **~45MB**
+- **Savings: ~150MB RAM**
 
 ## 7. Failure Modes
 
 | Failure | Impact | Recovery |
 |---------|--------|----------|
-| rust-exporter crash | No new metrics, dashboards show stale data | Auto-restart via Docker restart policy |
-| VictoriaMetrics crash | No metric storage, queries fail | Auto-restart, data persists in volume |
-| Grafana crash | Dashboard unavailable | Auto-restart, config persists in volume |
-| Caddy crash | All external access blocked | Auto-restart, no data loss |
-| Host reboot | All services down | Docker Compose restart policy brings all up |
+| rust-exporter crash | Dashboard unavailable | Auto-restart via Docker restart policy |
+| Caddy crash | All external access blocked | Manual restart (host service) |
+| Host reboot | Container down | Docker restart policy brings up container |
 
-## 8. Backup Strategy
+## 8. Storage
 
-| Data | Method | Frequency | Retention |
-|------|--------|-----------|-----------|
-| VictoriaMetrics TS | Volume snapshot or vmbackup | Daily | 7 days |
-| Grafana config | Volume snapshot | Weekly | 4 weeks |
+**No persistent volumes required.**
 
-**Recommended**: Use `victoriametrics/vmbackup` sidecar container or host-level volume backups.
+All metrics are stored in-memory:
+- Current snapshot: One struct instance
+- History: Fixed-size `VecDeque` capped at 60 elements
+- Data resets on container restart
 
-## 9. Monitoring the Monitor
+## 9. Monitoring
 
-### 9.1 Health Checks
+### 9.1 Health Check
 
-| Service | Health Endpoint | Docker Healthcheck |
-|---------|-----------------|-------------------|
-| rust-exporter | GET /health → 200 OK | `curl -f http://localhost:8080/health` |
-| VictoriaMetrics | GET /health → 200 OK | `curl -f http://localhost:8428/health` |
-| Grafana | GET /api/health → 200 OK | `curl -f http://localhost:3000/api/health` |
-| Caddy | GET /health → 200 OK | `caddy validate --config /etc/caddy/Caddyfile` |
+```bash
+curl -f http://127.0.0.1:3001/health
+# Returns: 200 OK (empty body)
+```
 
-### 9.2 Self-Monitoring Metrics
+### 9.2 Test Dashboard
 
-VictoriaMetrics exposes its own metrics at `/metrics/vm`. Consider adding a dashboard for:
-- `vm_rows` - Total stored rows
-- `vm_data_size_bytes` - Storage size
-- `vm_request_duration_seconds` - Query latency
+```bash
+curl http://127.0.0.1:3001/
+# Returns: HTML content
+
+curl http://127.0.0.1:3001/api/metrics | jq
+# Returns: JSON with current metrics and history
+```
 
 ## 10. Extension Points
 
-### 10.1 Adding New Exporters
+### 10.1 Adding New Metrics
 
-```yaml
-# docker-compose.yml addition
-services:
-  custom-exporter:
-    build: ./custom-exporter
-    networks:
-      - monitoring_net
+1. Add new fields to `LiveMetrics` struct in `src/state.rs`
+2. Update `collector.rs` to gather new metric
+3. Update `index.html` frontend to display new metric
+4. Rebuild: `docker compose build`
 
-# vmagent.yml addition
-scrape_configs:
-  - job_name: 'custom-exporter'
-    static_configs:
-      - targets: ['custom-exporter:8080']
+### 10.2 Changing Polling Interval
+
+Edit `collector.rs`:
+```rust
+tokio::time::sleep(std::time::Duration::from_secs(2)).await;
 ```
 
-### 10.2 Adding Alerting
+Change `2` to desired interval in seconds.
 
-Add Alertmanager (minimal overhead):
-```yaml
-services:
-  alertmanager:
-    image: prom/alertmanager:latest
-    networks:
-      - monitoring_net
+### 10.3 Changing History Length
+
+Edit `src/state.rs`:
+```rust
+pub const HISTORY_LENGTH: usize = 60;
 ```
 
-Configure VictoriaMetrics with `-alerts=...` flag.
+Change `60` to desired number of data points.
 
-### 10.3 Adding Authentication
+## 11. Troubleshooting
 
-For multi-user Grafana setup, configure OAuth/GitHub login via Grafana's `auth.github` section in `grafana.ini`.
+### Container Won't Start
+
+```bash
+docker compose logs rust-exporter
+```
+
+### Dashboard Shows "Connection error"
+
+1. Verify container is running: `docker compose ps`
+2. Check health: `curl -f http://127.0.0.1:3001/health`
+3. Verify Caddy is proxying: `curl -I https://system.estv.fr`
+4. Check browser console for JavaScript errors
+
+### Charts Not Updating
+
+1. Open browser dev tools → Network tab
+2. Check `/api/metrics` responses are successful (200 OK)
+3. Verify JSON contains non-empty `history` arrays
+
+### Metrics All Zero
+
+1. Check /proc and /sys mounts:
+   ```bash
+   docker compose exec rust-exporter ls /proc
+   docker compose exec rust-exporter ls /sys
+   ```
+2. Both should show directories/files if mounted correctly
+
+## 12. Rollback
+
+```bash
+# Stop container
+docker compose down
+
+# Revert to previous version (if using git)
+git checkout <previous-commit>
+
+# Rebuild and restart
+docker compose build && docker compose up -d
+```

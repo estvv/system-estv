@@ -1,19 +1,37 @@
+mod collector;
+mod handlers;
+mod state;
+
+use axum::{routing::get, Router};
+use std::sync::Arc;
 use tokio::signal;
+
+use crate::state::AppState;
 
 #[tokio::main]
 async fn main() {
-    let app = rust_exporter::create_app();
+    let state = Arc::new(AppState::new());
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080")
+    let collector_handle = tokio::spawn(collector::run_metrics_loop(Arc::clone(&state)));
+
+    let app = Router::new()
+        .route("/", get(handlers::index))
+        .route("/api/metrics", get(handlers::api_metrics))
+        .route("/health", get(handlers::health))
+        .with_state(state);
+
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000")
         .await
-        .expect("Failed to bind to port 8080");
+        .expect("Failed to bind to port 3000");
 
-    println!("rust-exporter listening on 0.0.0.0:8080");
+    println!("rust-exporter listening on 0.0.0.0:3000");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await
         .expect("Failed to start server");
+
+    collector_handle.abort();
 }
 
 async fn shutdown_signal() {

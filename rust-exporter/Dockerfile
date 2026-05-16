@@ -6,6 +6,7 @@ WORKDIR /app
 
 COPY Cargo.toml ./
 COPY src ./src
+COPY static ./static
 
 RUN RUSTFLAGS='-C target-feature=+crt-static' \
     cargo build --release --target x86_64-unknown-linux-musl
@@ -16,6 +17,6 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/rust-exporter 
 
 USER 65534:65534
 
-EXPOSE 8080
+EXPOSE 3000
 
 ENTRYPOINT ["/rust-exporter"]

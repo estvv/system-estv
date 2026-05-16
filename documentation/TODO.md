@@ -2,145 +2,196 @@
 
 ## Phase 1: Prerequisites
 
-- [ ] Verify Docker and Docker Compose are installed on VPS
-- [ ] Verify ports 80 and 443 are not in use by other services
-- [ ] Verify DNS records point to VPS:
-  - [ ] system.estv.fr → VPS IP address
-- [ ] Create `.env` file with configuration (copy from `.env.example`)
+- [x] Verify Docker and Docker Compose are installed on VPS
+- [x] Verify Caddy is installed on host OS (not containerized)
+- [x] Verify ports 80 and 443 are not in use by other services
+- [x] Verify DNS records point to VPS:
+  - [x] system.estv.fr → VPS IP address
+- [x] Configure Caddy to proxy system.estv.fr → 127.0.0.1:3001 with BasicAuth
 
 ## Phase 2: Configuration
 
-- [ ] Generate BasicAuth password hash for Caddy
-  ```bash
-  docker run --rm caddy:latest caddy hash-password --plaintext 'YOUR_PASSWORD'
+- [ ] Verify Caddyfile includes BasicAuth for system.estv.fr
+  ```text
+  system.estv.fr {
+      basicauth * {
+          <username> <bcrypt_hash>
+      }
+      reverse_proxy 127.0.0.1:3001
+  }
   ```
-- [ ] Update `caddy/Caddyfile` with hashed password (replace `$2a$...` placeholder)
-- [ ] Review `config/vmagent.yml` scrape interval (default: 10s)
-- [ ] (Optional) Adjust retention period in VictoriaMetrics (default: 12 months)
+- [ ] Generate BasicAuth password hash if not set:
+  ```bash
+  caddy hash-password --plaintext 'YOUR_PASSWORD'
+  ```
 
 ## Phase 3: Build and Deploy
 
-- [ ] Clone/pull repository to VPS
-- [ ] Build Docker images:
+- [ ] Pull latest code to VPS
+- [ ] Build Docker image:
   ```bash
   docker compose build
   ```
-- [ ] Start all services:
+- [ ] Start container:
   ```bash
   docker compose up -d
   ```
-- [ ] Verify all containers are running:
+- [ ] Verify container is running:
   ```bash
   docker compose ps
   ```
 
 ## Phase 4: Validation
 
-- [ ] Check rust-exporter health:
+- [ ] Check container logs:
   ```bash
-  docker compose exec rust-exporter curl -f http://localhost:8080/health
+  docker compose logs rust-exporter
   ```
-- [ ] Check rust-exporter metrics:
+  Expected: `rust-exporter listening on 0.0.0.0:3000`
+
+- [ ] Test health endpoint:
   ```bash
-  docker compose exec rust-exporter curl http://localhost:8080/metrics
+  curl -f http://127.0.0.1:3001/health
   ```
-- [ ] Verify VictoriaMetrics is scraping:
+  Expected: Empty response, status 200
+
+- [ ] Test API endpoint:
   ```bash
-  docker compose exec victoriametrics curl http://localhost:8428/api/v1/query?query=up
+  curl http://127.0.0.1:3001/api/metrics | jq
   ```
-- [ ] Access Grafana at https://system.estv.fr
-- [ ] Login with BasicAuth credentials (Caddy layer)
-- [ ] Login to Grafana admin (password in logs or custom)
-- [ ] Add VictoriaMetrics as datasource (URL: http://victoriametrics:8428)
-- [ ] Import or create dashboard for system metrics
+  Expected: JSON with `current` and `history` objects
 
-## Phase 5: Post-Deployment
-
-- [ ] Configure Grafana dashboard to use VictoriaMetrics datasource
-- [ ] Create dashboard panels for:
-  - [ ] CPU usage (node_cpu_usage_percent)
-  - [ ] Memory usage (node_memory_used_bytes / node_memory_total_bytes)
-  - [ ] Disk usage (node_disk_used_bytes / node_disk_total_bytes)
-- [ ] (Optional) Configure Grafana alerts for high CPU/memory usage
-- [ ] (Optional) Set up volume backups for victoriametrics_data and grafana_data
-- [ ] (Optional) Configure log rotation if needed
-
-## Phase 6: Security Hardening
-
-- [ ] Verify no ports are exposed directly to host (except 80/443 via Caddy)
+- [ ] Test dashboard HTML:
   ```bash
-  docker compose ps  # Should show no host ports for rust-exporter, victoriametrics, grafana
+  curl http://127.0.0.1:3001/
   ```
-- [ ] Test BasicAuth enforcement:
+  Expected: HTML content with Tailwind/Chart.js references
+
+- [ ] Access via Caddy:
   ```bash
-  curl -I https://system.estv.fr  # Should return 401
-  curl -I -u user:password https://system.estv.fr  # Should return 200
+  curl -I https://system.estv.fr
   ```
-- [ ] Review UFW/firewall rules (only 22, 80, 443 should be open)
-- [ ] (Optional) Configure fail2ban for additional protection
+  Expected: 401 Unauthorized (no auth header)
 
-## Phase 7: Monitoring
+- [ ] Access with BasicAuth:
+  ```bash
+  curl -I -u username:password https://system.estv.fr
+  ```
+  Expected: 200 OK with HTML content
 
-- [ ] Verify Grafana dashboard displays real-time data
-- [ ] Check VictoriaMetrics storage size growth over 24h
+## Phase 5: Browser Testing
+
+- [ ] Open https://system.estv.fr in browser
+- [ ] Enter BasicAuth credentials
+- [ ] Verify gauges display non-zero values after ~4 seconds:
+  - [ ] CPU Usage %
+  - [ ] RAM Used / Total GB
+  - [ ] Disk Free GB
+  - [ ] Processes count
+  - [ ] Uptime
+  - [ ] Network RX/TX MB/s
+- [ ] Verify charts populate with data points over time
+- [ ] Verify "Last update" timestamp changes every 2 seconds
+
+## Phase 6: Performance Check
+
 - [ ] Monitor container resource usage:
   ```bash
-  docker stats
+  docker stats rust-exporter
   ```
-- [ ] Expected total RAM usage: <250MB
+  Expected: RAM < 30MB, CPU < 5%
+
+- [ ] Check host memory savings:
+  ```bash
+  free -h
+  ```
+  Compare to previous VictoriaMetrics + Grafana setup (~150MB freed)
+
+## Phase 7: Security Hardening
+
+- [ ] Verify no unexpected host ports:
+  ```bash
+  docker compose ps
+  ```
+  Should only show: `127.0.0.1:3001->3000/tcp`
+
+- [ ] Test that direct access to 3001 requires localhost:
+  ```bash
+  # From another machine (should fail):
+  curl http://<vps-ip>:3001/health
+  ```
+
+- [ ] Verify UFW/firewall rules (only 22, 80, 443 open):
+  ```bash
+  sudo ufw status
+  ```
 
 ## Troubleshooting
 
 ### Container Won't Start
 
 ```bash
-docker compose logs <service-name>
-```
-
-### Caddy Certificate Issues
-
-```bash
-docker compose logs caddy
-```
-
-### Metrics Not Appearing
-
-```bash
-# Check rust-exporter logs
 docker compose logs rust-exporter
-
-# Check VictoriaMetrics scrape status
-docker compose exec victoriametrics curl http://localhost:8428/api/v1/targets
 ```
 
-### Grafana Can't Connect to VictoriaMetrics
+Common issues:
+- Missing `/proc` or `/sys` mounts → verify docker-compose.yml volumes
+- Port 3001 in use → `lsof -i :3001` to find conflicting process
 
-```bash
-# Verify network connectivity
-docker compose exec grafana ping victoriametrics
-docker compose exec grafana curl http://victoriametrics:8428/health
-```
+### Dashboard Shows "Connection error"
+
+1. Verify container: `docker compose ps`
+2. Test health: `curl -f http://127.0.0.1:3001/health`
+3. Check browser console (F12) for JavaScript errors
+4. Verify Caddy proxy: `caddy validate --config /etc/caddy/Caddyfile` (on host)
+
+### All Metrics Show Zero
+
+1. Check `/proc` mount:
+   ```bash
+   docker compose exec rust-exporter ls /proc
+   ```
+   Should show directories like `cpuinfo`, `meminfo`, etc.
+
+2. Check `/sys` mount:
+   ```bash
+   docker compose exec rust-exporter ls /sys
+   ```
+
+### Charts Not Updating
+
+1. Open browser DevTools → Network tab
+2. Check `/api/metrics` responses:
+   - Status: 200 OK
+   - Response: JSON with non-empty `history` arrays
+3. If history arrays are empty, wait 10 seconds for data to accumulate
 
 ### BasicAuth Not Working
 
 ```bash
-# Verify Caddyfile syntax
-docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile
+# Verify Caddyfile syntax (on host)
+caddy validate --config /path/to/Caddyfile
 
-# Re-generate password hash
-docker compose exec caddy caddy hash-password --plaintext 'YOUR_PASSWORD'
+# Reload Caddy
+sudo systemctl reload caddy
 ```
 
 ## Rollback
 
 ```bash
-# Stop all services
+# Stop container
 docker compose down
 
 # Revert to previous version
 git checkout <previous-commit>
 
 # Rebuild and restart
-docker compose build
-docker compose up -d
+docker compose build && docker compose up -d
 ```
+
+## Notes
+
+- **No persistent data**: All metrics reset on container restart
+- **Network speed accuracy**: First 2 seconds after start will show 0 MB/s (need previous tick for delta calculation)
+- **History depth**: 60 data points at 2s intervals = 2 minutes of chart history
+- **Browser compatibility**: Requires modern browser with JavaScript enabled

@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        .glow {
+            box-shadow: 0 0 30px rgba(56, 189, 248, 0.1);
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .status-dot {
+            animation: pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="text-slate-200 font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <header class="mb-8">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="status-dot w-3 h-3 bg-emerald-400 rounded-full"></div>
+                    <h1 class="text-2xl font-bold text-slate-100">System Monitor</h1>
+                </div>
+                <div id="last-update" class="text-sm text-slate-400">Connecting...</div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <div class="glass rounded-xl p-4 glow">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">CPU Usage</div>
+                <div class="flex items-end gap-2">
+                    <span id="cpu-value" class="text-3xl font-bold text-cyan-400">--</span>
+                    <span class="text-slate-500 text-sm mb-1">%</span>
+                </div>
+                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="cpu-bar" class="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-4 glow">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">RAM Used</div>
+                <div class="flex items-end gap-2">
+                    <span id="ram-value" class="text-3xl font-bold text-violet-400">--</span>
+                    <span id="ram-total" class="text-slate-500 text-sm mb-1">/ -- GB</span>
+                </div>
+                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="ram-bar" class="h-full bg-gradient-to-r from-violet-500 to-violet-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-4 glow">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Disk Free</div>
+                <div class="flex items-end gap-2">
+                    <span id="disk-value" class="text-3xl font-bold text-emerald-400">--</span>
+                    <span class="text-slate-500 text-sm mb-1">GB</span>
+                </div>
+                <div class="mt-2 h-1 bg-slate-700 rounded-full overflow-hidden">
+                    <div id="disk-bar" class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-4 glow">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Processes</div>
+                <div class="flex items-end gap-2">
+                    <span id="processes-value" class="text-3xl font-bold text-amber-400">--</span>
+                </div>
+                <div class="mt-2 text-xs text-slate-500">Active processes</div>
+            </div>
+
+            <div class="glass rounded-xl p-4 glow">
+                <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">Uptime</div>
+                <div class="flex items-end gap-2">
+                    <span id="uptime-value" class="text-3xl font-bold text-rose-400">--</span>
+                </div>
+                <div class="mt-2 text-xs text-slate-500" id="uptime-detail">--</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 mb-4">Network Traffic (MB/s)</h2>
+                <div class="h-48">
+                    <canvas id="network-chart"></canvas>
+                </div>
+                <div class="flex justify-around mt-4 pt-4 border-t border-slate-700">
+                    <div class="text-center">
+                        <div class="text-xs text-slate-400 uppercase mb-1">Inbound</div>
+                        <div class="flex items-center justify-center gap-2">
+                            <span id="net-rx-value" class="text-xl font-bold text-green-400">--</span>
+                            <span class="text-slate-500 text-sm">MB/s</span>
+                        </div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-xs text-slate-400 uppercase mb-1">Outbound</div>
+                        <div class="flex items-center justify-center gap-2">
+                            <span id="net-tx-value" class="text-xl font-bold text-blue-400">--</span>
+                            <span class="text-slate-500 text-sm">MB/s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-slate-300 mb-4">System Activity</h2>
+                <div class="h-48">
+                    <canvas id="system-chart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <footer class="text-center text-xs text-slate-500 mt-8">
+            <span id="app-version">rust-exporter v0.2.0</span>
+        </footer>
+    </div>
+
+    <script>
+        const MAX_HISTORY = 60;
+
+        let systemChart, networkChart;
+        let historyData = {
+            timestamps: [],
+            cpu: [],
+            ram: [],
+            net_rx: [],
+            net_tx: []
+        };
+
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 0 },
+            scales: {
+                x: {
+                    display: false
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: '#94a3b8', font: { size: 11 } }
+                }
+            }
+        };
+
+        function initCharts() {
+            const systemCtx = document.getElementById('system-chart').getContext('2d');
+            systemChart = new Chart(systemCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'CPU %',
+                            data: [],
+                            borderColor: '#22d3ee',
+                            backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'RAM GB',
+                            data: [],
+                            borderColor: '#a78bfa',
+                            backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    ...chartOptions,
+                    scales: {
+                        ...chartOptions.scales,
+                        y: {
+                            ...chartOptions.scales.y,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+
+            const networkCtx = document.getElementById('network-chart').getContext('2d');
+            networkChart = new Chart(networkCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Inbound',
+                            data: [],
+                            borderColor: '#4ade80',
+                            backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Outbound',
+                            data: [],
+                            borderColor: '#60a5fa',
+                            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: chartOptions
+            });
+        }
+
+        function formatUptime(secs) {
+            const days = Math.floor(secs / 86400);
+            const hours = Math.floor((secs % 86400) / 3600);
+            const mins = Math.floor((secs % 3600) / 60);
+            
+            let str = '';
+            if (days > 0) str += `${days}d `;
+            str += `${hours}h ${mins}m`;
+            return str;
+        }
+
+        function updateGauges(data) {
+            document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1);
+            document.getElementById('cpu-bar').style.width = `${Math.min(data.cpu_percent, 100)}%`;
+
+            document.getElementById('ram-value').textContent = data.ram_used_gb.toFixed(2);
+            document.getElementById('ram-total').textContent = `/ ${data.ram_total_gb.toFixed(1)} GB`;
+            const ramPercent = (data.ram_used_gb / data.ram_total_gb) * 100;
+            document.getElementById('ram-bar').style.width = `${Math.min(ramPercent, 100)}%`;
+
+            document.getElementById('disk-value').textContent = data.disk_free_gb.toFixed(1);
+            document.getElementById('disk-bar').style.width = '100%';
+
+            document.getElementById('processes-value').textContent = data.processes;
+
+            document.getElementById('uptime-value').textContent = formatUptime(data.uptime_secs);
+
+            document.getElementById('net-rx-value').textContent = data.net_rx_mbps.toFixed(2);
+            document.getElementById('net-tx-value').textContent = data.net_tx_mbps.toFixed(2);
+
+            const now = new Date();
+            document.getElementById('last-update').textContent = `Updated ${now.toLocaleTimeString()}`;
+        }
+
+        function updateCharts(history) {
+            systemChart.data.labels = history.timestamps.map(t => t + 's');
+            systemChart.data.datasets[0].data = history.cpu;
+            systemChart.data.datasets[1].data = history.ram;
+            systemChart.update('none');
+
+            networkChart.data.labels = history.timestamps.map(t => t + 's');
+            networkChart.data.datasets[0].data = history.net_rx;
+            networkChart.data.datasets[1].data = history.net_tx;
+            networkChart.update('none');
+        }
+
+        async function fetchMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                const data = await response.json();
+                
+                updateGauges(data.current);
+                updateCharts(data.history);
+            } catch (error) {
+                console.error('Failed to fetch metrics:', error);
+                document.getElementById('last-update').textContent = 'Connection error';
+            }
+        }
+
+        initCharts();
+        fetchMetrics();
+        setInterval(fetchMetrics, 2000);
+    </script>
+</body>
+</html>

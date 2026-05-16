@@ -8,178 +8,129 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         * {
             font-family: 'Plus Jakarta Sans', sans-serif;
         }
-        body {
-            background: #FAFAFA;
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 1; 
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4);
+            }
+            50% { 
+                opacity: 0.7;
+                box-shadow: 0 0 0 4px rgba(34, 197, 94, 0);
+            }
         }
-        .card {
-            border: 1px solid #E5E5E5;
-            background: #FFFFFF;
-            transition: border-color 0.2s ease;
-        }
-        .card:hover {
-            border-color: #D4D4D4;
-        }
-        .progress-bar {
-            background: #E5E5E5;
-        }
-        .progress-fill {
-            background: #171717;
-            transition: width 0.3s ease;
-        }
-        .progress-fill.warning {
-            background: #FACC15;
-        }
-        .progress-fill.danger {
-            background: #EF4444;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in {
-            animation: fadeIn 0.3s ease;
-        }
-        @keyframes statusPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-        .status-dot {
-            animation: statusPulse 2s ease-in-out infinite;
+        .status-pulse {
+            animation: pulse 2s ease-in-out infinite;
         }
     </style>
 </head>
-<body class="text-neutral-900 min-h-screen">
+<body class="bg-white text-neutral-900 min-h-screen">
     <div class="max-w-3xl mx-auto px-6 py-12">
-        <header class="text-center mb-16">
-            <div class="flex items-center justify-center gap-3 mb-2">
-                <div class="status-dot w-2 h-2 bg-green-500 rounded-full"></div>
-                <span class="text-xs text-neutral-400 uppercase tracking-widest">Live</span>
-            </div>
-            <h1 class="text-3xl font-bold text-neutral-900 tracking-tight">System Monitor</h1>
-            <p id="last-update" class="text-sm text-neutral-400 mt-2">Connecting...</p>
+        
+        <header class="text-center mb-12">
+            <h1 class="text-2xl font-bold text-neutral-900 tracking-tight">System Monitor</h1>
+            <p id="last-update" class="text-sm text-neutral-400 mt-1">Connecting...</p>
         </header>
 
-        <section class="mb-12">
-            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Overview</h2>
+        <section class="mb-8">
             <div class="space-y-3">
-                <div class="card rounded-lg p-5 fade-in">
-                    <div class="flex justify-between items-baseline mb-3">
-                        <div>
-                            <span class="text-sm font-semibold text-neutral-900">CPU</span>
-                            <span id="cpu-temp-container" class="text-xs text-neutral-400 ml-2 hidden">
-                                <span id="cpu-temp">--°C</span>
-                            </span>
-                        </div>
-                        <div class="text-right">
-                            <span id="cpu-value" class="text-2xl font-bold tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">%</span>
-                        </div>
+                
+                <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-neutral-900">CPU</span>
+                        <span class="text-sm text-neutral-900 tabular-nums"><span id="cpu-value">--</span>%</span>
                     </div>
-                    <div class="progress-bar h-1 rounded-full overflow-hidden">
-                        <div id="cpu-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    <div class="h-1 bg-neutral-100 rounded-full overflow-hidden">
+                        <div id="cpu-bar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: #22c55e;"></div>
+                    </div>
+                    <div id="cpu-temp-container" class="mt-2 text-xs text-neutral-400 hidden">
+                        Temperature: <span id="cpu-temp">--°C</span>
                     </div>
                 </div>
 
-                <div class="card rounded-lg p-5 fade-in">
-                    <div class="flex justify-between items-baseline mb-3">
-                        <span class="text-sm font-semibold text-neutral-900">Memory</span>
-                        <div class="text-right">
-                            <span id="ram-value" class="text-2xl font-bold tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">/ <span id="ram-total">-- GB</span></span>
-                        </div>
+                <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-neutral-900">Memory</span>
+                        <span class="text-sm text-neutral-900 tabular-nums"><span id="ram-value">--</span> / <span id="ram-total">-- GB</span></span>
                     </div>
-                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
-                        <div id="ram-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    <div class="h-1 bg-neutral-100 rounded-full overflow-hidden">
+                        <div id="ram-bar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: #22c55e;"></div>
                     </div>
-                    <div class="text-xs text-neutral-400 text-right"><span id="ram-percent">--</span>% used</div>
+                    <div class="mt-2 text-xs text-neutral-400"><span id="ram-percent">--</span>% used</div>
                 </div>
 
-                <div class="card rounded-lg p-5 fade-in">
-                    <div class="flex justify-between items-baseline mb-3">
-                        <span class="text-sm font-semibold text-neutral-900">Swap</span>
-                        <div class="text-right">
-                            <span id="swap-value" class="text-2xl font-bold tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">/ <span id="swap-total">-- GB</span></span>
-                        </div>
+                <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-neutral-900">Swap</span>
+                        <span class="text-sm text-neutral-900 tabular-nums"><span id="swap-value">--</span> / <span id="swap-total">-- GB</span></span>
                     </div>
-                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
-                        <div id="swap-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    <div class="h-1 bg-neutral-100 rounded-full overflow-hidden">
+                        <div id="swap-bar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: #22c55e;"></div>
                     </div>
-                    <div class="text-xs text-neutral-400 text-right"><span id="swap-percent">--</span>% used</div>
+                    <div class="mt-2 text-xs text-neutral-400"><span id="swap-percent">--</span>% used</div>
                 </div>
 
-                <div class="card rounded-lg p-5 fade-in">
-                    <div class="flex justify-between items-baseline mb-3">
-                        <span class="text-sm font-semibold text-neutral-900">Disk</span>
-                        <div class="text-right">
-                            <span id="disk-used" class="text-2xl font-bold tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">/ <span id="disk-total">-- GB</span></span>
-                        </div>
+                <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-neutral-900">Disk</span>
+                        <span class="text-sm text-neutral-900 tabular-nums"><span id="disk-used">--</span> / <span id="disk-total">-- GB</span></span>
                     </div>
-                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
-                        <div id="disk-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    <div class="h-1 bg-neutral-100 rounded-full overflow-hidden">
+                        <div id="disk-bar" class="h-full rounded-full transition-all duration-300" style="width: 0%; background: #22c55e;"></div>
                     </div>
-                    <div class="text-xs text-neutral-400 text-right"><span id="disk-percent">--</span>% used · <span id="disk-free">--</span> GB free</div>
+                    <div class="mt-2 text-xs text-neutral-400"><span id="disk-percent">--</span>% used · <span id="disk-free">--</span> GB free</div>
                 </div>
+
             </div>
         </section>
 
-        <section class="mb-12">
-            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Network</h2>
-            <div class="card rounded-lg p-6 fade-in">
-                <div class="flex justify-between mb-6">
+        <section class="mb-8">
+            <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">Network</h2>
+            <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                <div class="flex justify-between items-center mb-4">
                     <div>
-                        <div class="text-xs text-neutral-400 uppercase tracking-wider mb-1">Inbound</div>
-                        <div>
-                            <span id="net-rx-value" class="text-2xl font-bold text-green-600 tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">MB/s</span>
-                        </div>
+                        <div class="text-xs text-neutral-400 mb-1">Inbound</div>
+                        <div class="text-lg text-green-500 tabular-nums"><span id="net-rx-value">--</span> <span class="text-sm text-neutral-400">MB/s</span></div>
                     </div>
                     <div class="text-right">
-                        <div class="text-xs text-neutral-400 uppercase tracking-wider mb-1">Outbound</div>
-                        <div>
-                            <span id="net-tx-value" class="text-2xl font-bold text-neutral-900 tabular-nums">--</span>
-                            <span class="text-sm text-neutral-400">MB/s</span>
-                        </div>
+                        <div class="text-xs text-neutral-400 mb-1">Outbound</div>
+                        <div class="text-lg text-neutral-900 tabular-nums"><span id="net-tx-value">--</span> <span class="text-sm text-neutral-400">MB/s</span></div>
                     </div>
                 </div>
-                <div class="h-40">
+                <div class="h-32">
                     <canvas id="network-chart"></canvas>
                 </div>
             </div>
         </section>
 
-        <section class="mb-12">
-            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Activity</h2>
-            <div class="card rounded-lg p-6 fade-in mb-4">
-                <h3 class="text-sm font-semibold text-neutral-900 mb-4">CPU & Memory</h3>
-                <div class="h-40">
-                    <canvas id="system-chart"></canvas>
+        <section class="mb-8">
+            <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">Activity</h2>
+            <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors mb-3">
+                <div class="text-sm font-medium text-neutral-900 mb-3">CPU</div>
+                <div class="h-32">
+                    <canvas id="cpu-chart"></canvas>
                 </div>
             </div>
-            <div class="card rounded-lg p-6 fade-in">
-                <h3 class="text-sm font-semibold text-neutral-900 mb-4">Memory & Swap History</h3>
-                <div class="h-40">
+            <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                <div class="text-sm font-medium text-neutral-900 mb-3">Memory</div>
+                <div class="h-32">
                     <canvas id="memory-chart"></canvas>
                 </div>
             </div>
         </section>
 
-        <section class="mb-12">
-            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Processes</h2>
-            <div class="card rounded-lg p-6 fade-in">
-                <div class="flex justify-between items-baseline mb-4">
-                    <h3 class="text-sm font-semibold text-neutral-900">Top 5 by CPU</h3>
-                    <div class="text-xs text-neutral-400">
-                        <span id="processes-value" class="font-semibold">--</span> total
-                    </div>
+        <section class="mb-8">
+            <h2 class="text-xs font-medium text-neutral-400 uppercase tracking-wider mb-3">Top Processes</h2>
+            <div class="border border-neutral-200 rounded-lg p-4 hover:bg-neutral-50 transition-colors">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="text-sm font-medium text-neutral-900">By CPU</div>
+                    <div class="text-xs text-neutral-400"><span id="processes-value">--</span> total processes</div>
                 </div>
-                <table class="w-full text-sm">
+                <table class="w-full">
                     <thead>
                         <tr class="border-b border-neutral-200">
                             <th class="pb-2 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Process</th>
@@ -188,31 +139,27 @@
                         </tr>
                     </thead>
                     <tbody id="processes-table">
-                        <tr><td colspan="3" class="py-4 text-center text-neutral-400">Loading...</td></tr>
+                        <tr><td colspan="3" class="py-3 text-center text-neutral-400 text-sm">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
-        <footer class="text-center pt-8 border-t border-neutral-200">
-            <p class="text-xs text-neutral-400">Uptime: <span id="uptime-value" class="font-semibold text-neutral-600">--</span></p>
-            <p id="uptime-detail" class="text-xs text-neutral-400 mt-1">--</p>
+        <footer class="pt-6 border-t border-neutral-200">
+            <div class="flex items-center justify-center gap-2 text-xs text-neutral-400">
+                <span class="status-pulse w-2 h-2 bg-green-500 rounded-full inline-block"></span>
+                <span>Live</span>
+                <span class="mx-2">·</span>
+                <span>Uptime: <span id="uptime-value">--</span></span>
+            </div>
         </footer>
+
     </div>
 
     <script>
         const MAX_HISTORY = 60;
 
-        let systemChart, networkChart, memoryChart;
-        let historyData = {
-            timestamps: [],
-            cpu: [],
-            ram: [],
-            swap: [],
-            net_rx: [],
-            net_tx: [],
-            cpu_temp: []
-        };
+        let cpuChart, networkChart, memoryChart;
 
         const chartOptions = {
             responsive: true,
@@ -222,20 +169,20 @@
                 x: { display: false },
                 y: {
                     beginAtZero: true,
-                    grid: { color: '#F5F5F5', drawBorder: false },
-                    ticks: { color: '#A3A3A3', font: { size: 10, family: 'Plus Jakarta Sans' } }
+                    grid: { color: '#f5f5f5', drawBorder: false },
+                    ticks: { color: '#a3a3a3', font: { size: 10, family: 'Plus Jakarta Sans' } }
                 }
             },
             plugins: {
                 legend: {
-                    labels: { color: '#737373', font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12, padding: 16 }
+                    display: false
                 }
             }
         };
 
         function initCharts() {
-            const systemCtx = document.getElementById('system-chart').getContext('2d');
-            systemChart = new Chart(systemCtx, {
+            const cpuCtx = document.getElementById('cpu-chart').getContext('2d');
+            cpuChart = new Chart(cpuCtx, {
                 type: 'line',
                 data: {
                     labels: [],
@@ -268,7 +215,7 @@
                         {
                             label: 'Inbound',
                             data: [],
-                            borderColor: '#22C55E',
+                            borderColor: '#22c55e',
                             backgroundColor: 'rgba(34, 197, 94, 0.05)',
                             tension: 0.3,
                             fill: true,
@@ -297,7 +244,7 @@
                     labels: [],
                     datasets: [
                         {
-                            label: 'RAM GB',
+                            label: 'RAM',
                             data: [],
                             borderColor: '#171717',
                             backgroundColor: 'rgba(23, 23, 23, 0.05)',
@@ -307,9 +254,9 @@
                             borderWidth: 1.5
                         },
                         {
-                            label: 'SWAP GB',
+                            label: 'Swap',
                             data: [],
-                            borderColor: '#A3A3A3',
+                            borderColor: '#a3a3a3',
                             backgroundColor: 'rgba(163, 163, 163, 0.05)',
                             tension: 0.3,
                             fill: true,
@@ -337,47 +284,50 @@
             return name.length > maxLen ? name.substring(0, maxLen) + '...' : name;
         }
 
-        function getProgressBarClass(value) {
-            if (value >= 90) return 'danger';
-            if (value >= 70) return 'warning';
-            return '';
+        function getProgressColor(value) {
+            if (value >= 90) return '#ef4444';
+            if (value >= 70) return '#facc15';
+            return '#22c55e';
         }
 
         function updateGauges(data) {
-            document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1);
+            const cpuPercent = data.cpu_percent;
+            document.getElementById('cpu-value').textContent = cpuPercent.toFixed(1);
             const cpuBar = document.getElementById('cpu-bar');
-            cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
-            cpuBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.cpu_percent)}`;
+            cpuBar.style.width = `${Math.min(cpuPercent, 100)}%`;
+            cpuBar.style.background = getProgressColor(cpuPercent);
 
             if (data.cpu_temp_celsius !== null && data.cpu_temp_celsius !== undefined) {
                 document.getElementById('cpu-temp').textContent = `${data.cpu_temp_celsius.toFixed(1)}°C`;
                 document.getElementById('cpu-temp-container').classList.remove('hidden');
             }
 
+            const ramPercent = data.ram_percent;
             document.getElementById('ram-value').textContent = data.ram_used_gb.toFixed(2);
             document.getElementById('ram-total').textContent = `${data.ram_total_gb.toFixed(1)} GB`;
-            document.getElementById('ram-percent').textContent = data.ram_percent.toFixed(1);
+            document.getElementById('ram-percent').textContent = ramPercent.toFixed(1);
             const ramBar = document.getElementById('ram-bar');
-            ramBar.style.width = `${Math.min(data.ram_percent, 100)}%`;
-            ramBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.ram_percent)}`;
+            ramBar.style.width = `${Math.min(ramPercent, 100)}%`;
+            ramBar.style.background = getProgressColor(ramPercent);
 
+            const swapPercent = data.swap_percent;
             document.getElementById('swap-value').textContent = data.swap_used_gb.toFixed(2);
             document.getElementById('swap-total').textContent = data.swap_total_gb > 0 ? `${data.swap_total_gb.toFixed(1)} GB` : '0 GB';
-            document.getElementById('swap-percent').textContent = data.swap_percent.toFixed(1);
+            document.getElementById('swap-percent').textContent = swapPercent.toFixed(1);
             const swapBar = document.getElementById('swap-bar');
-            swapBar.style.width = `${Math.min(data.swap_percent, 100)}%`;
-            swapBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.swap_percent)}`;
+            swapBar.style.width = `${Math.min(swapPercent, 100)}%`;
+            swapBar.style.background = getProgressColor(swapPercent);
 
+            const diskPercent = data.disk_percent;
             document.getElementById('disk-used').textContent = data.disk_used_gb.toFixed(1);
             document.getElementById('disk-total').textContent = `${data.disk_total_gb.toFixed(0)} GB`;
-            document.getElementById('disk-percent').textContent = data.disk_percent.toFixed(1);
+            document.getElementById('disk-percent').textContent = diskPercent.toFixed(1);
             document.getElementById('disk-free').textContent = data.disk_free_gb.toFixed(1);
             const diskBar = document.getElementById('disk-bar');
-            diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
-            diskBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.disk_percent)}`;
+            diskBar.style.width = `${Math.min(diskPercent, 100)}%`;
+            diskBar.style.background = getProgressColor(diskPercent);
 
             document.getElementById('processes-value').textContent = data.processes;
-
             document.getElementById('uptime-value').textContent = formatUptime(data.uptime_secs);
 
             document.getElementById('net-rx-value').textContent = data.net_rx_mbps.toFixed(2);
@@ -385,11 +335,11 @@
 
             const tbody = document.getElementById('processes-table');
             if (data.top_processes && data.top_processes.length > 0) {
-                tbody.innerHTML = data.top_processes.map((p, i) => `
+                tbody.innerHTML = data.top_processes.map(p => `
                     <tr class="border-b border-neutral-100 last:border-0">
-                        <td class="py-3 text-neutral-900">${truncateName(p.name)}</td>
-                        <td class="py-3 text-right font-mono text-neutral-600">${p.cpu_percent.toFixed(1)}%</td>
-                        <td class="py-3 text-right font-mono text-neutral-400">${p.ram_mb.toFixed(0)} MB</td>
+                        <td class="py-2 text-sm text-neutral-900">${truncateName(p.name)}</td>
+                        <td class="py-2 text-right text-sm text-neutral-600 tabular-nums">${p.cpu_percent.toFixed(1)}%</td>
+                        <td class="py-2 text-right text-sm text-neutral-400 tabular-nums">${p.ram_mb.toFixed(0)} MB</td>
                     </tr>
                 `).join('');
             }
@@ -399,9 +349,9 @@
         }
 
         function updateCharts(history) {
-            systemChart.data.labels = history.timestamps.map(t => t + 's');
-            systemChart.data.datasets[0].data = history.cpu;
-            systemChart.update('none');
+            cpuChart.data.labels = history.timestamps.map(t => t + 's');
+            cpuChart.data.datasets[0].data = history.cpu;
+            cpuChart.update('none');
 
             networkChart.data.labels = history.timestamps.map(t => t + 's');
             networkChart.data.datasets[0].data = history.net_rx;

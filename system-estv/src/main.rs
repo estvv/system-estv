@@ -18,6 +18,7 @@ async fn main() {
         .route("/", get(handlers::index))
         .route("/api/metrics", get(handlers::api_metrics))
         .route("/health", get(handlers::health))
+        .route("/version.json", get(handlers::version_json))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001")

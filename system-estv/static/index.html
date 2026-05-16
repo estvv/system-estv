@@ -183,7 +183,7 @@
 
         async function loadVersion() {
             try {
-                const response = await fetch('version.json');
+                const response = await fetch('/version.json');
                 const data = await response.json();
                 document.getElementById('gitHash').textContent = data.gitHash || 'unknown';
             } catch (error) {
@@ -345,7 +345,7 @@
             document.getElementById('net-tx-value').textContent = data.net_tx_mbps.toFixed(2);
 
             const tbody = document.getElementById('processes-table');
-            if (data.top_processes && dataVersi.top_processes.length > 0) {
+            if (data.top_processes && data.top_processes.length > 0) {
                 tbody.innerHTML = data.top_processes.map(p => `
                     <tr class="border-b border-neutral-100 last:border-0">
                         <td class="py-2 text-sm text-neutral-900">${truncateName(p.name)}</td>

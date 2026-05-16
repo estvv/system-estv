@@ -6,211 +6,198 @@
     <title>System Monitor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
         body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-            min-height: 100vh;
+            background: #FAFAFA;
         }
-        .glass {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(148, 163, 184, 0.1);
+        .card {
+            border: 1px solid #E5E5E5;
+            background: #FFFFFF;
+            transition: border-color 0.2s ease;
         }
-        .glow {
-            box-shadow: 0 0 30px rgba(56, 189, 248, 0.1);
+        .card:hover {
+            border-color: #D4D4D4;
         }
-        @keyframes pulse {
+        .progress-bar {
+            background: #E5E5E5;
+        }
+        .progress-fill {
+            background: #171717;
+            transition: width 0.3s ease;
+        }
+        .progress-fill.warning {
+            background: #FACC15;
+        }
+        .progress-fill.danger {
+            background: #EF4444;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes statusPulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
         .status-dot {
-            animation: pulse 2s ease-in-out infinite;
+            animation: statusPulse 2s ease-in-out infinite;
         }
     </style>
 </head>
-<body class="text-slate-200 font-sans">
-    <div class="container mx-auto px-4 py-8 max-w-7xl">
-        <header class="mb-8">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="status-dot w-3 h-3 bg-emerald-400 rounded-full"></div>
-                    <h1 class="text-2xl font-bold text-slate-100">System Monitor</h1>
-                    <span class="text-xs text-slate-500 bg-slate-800 px-2 py-1 rounded">v0.3.0</span>
-                </div>
-                <div id="last-update" class="text-sm text-slate-400">Connecting...</div>
+<body class="text-neutral-900 min-h-screen">
+    <div class="max-w-3xl mx-auto px-6 py-12">
+        <header class="text-center mb-16">
+            <div class="flex items-center justify-center gap-3 mb-2">
+                <div class="status-dot w-2 h-2 bg-green-500 rounded-full"></div>
+                <span class="text-xs text-neutral-400 uppercase tracking-widest">Live</span>
             </div>
+            <h1 class="text-3xl font-bold text-neutral-900 tracking-tight">System Monitor</h1>
+            <p id="last-update" class="text-sm text-neutral-400 mt-2">Connecting...</p>
         </header>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">CPU</div>
+        <section class="mb-12">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Overview</h2>
+            <div class="space-y-3">
+                <div class="card rounded-lg p-5 fade-in">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <div>
+                            <span class="text-sm font-semibold text-neutral-900">CPU</span>
+                            <span id="cpu-temp-container" class="text-xs text-neutral-400 ml-2 hidden">
+                                <span id="cpu-temp">--°C</span>
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <span id="cpu-value" class="text-2xl font-bold tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">%</span>
+                        </div>
+                    </div>
+                    <div class="progress-bar h-1 rounded-full overflow-hidden">
+                        <div id="cpu-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    </div>
                 </div>
-                <div class="flex items-end gap-2">
-                    <span id="cpu-value" class="text-3xl font-bold text-cyan-400">--</span>
-                    <span class="text-slate-500 text-sm mb-1">%</span>
+
+                <div class="card rounded-lg p-5 fade-in">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-sm font-semibold text-neutral-900">Memory</span>
+                        <div class="text-right">
+                            <span id="ram-value" class="text-2xl font-bold tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">/ <span id="ram-total">-- GB</span></span>
+                        </div>
+                    </div>
+                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
+                        <div id="ram-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-neutral-400 text-right"><span id="ram-percent">--</span>% used</div>
                 </div>
-                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div id="cpu-bar" class="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 transition-all duration-500" style="width: 0%"></div>
+
+                <div class="card rounded-lg p-5 fade-in">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-sm font-semibold text-neutral-900">Swap</span>
+                        <div class="text-right">
+                            <span id="swap-value" class="text-2xl font-bold tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">/ <span id="swap-total">-- GB</span></span>
+                        </div>
+                    </div>
+                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
+                        <div id="swap-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-neutral-400 text-right"><span id="swap-percent">--</span>% used</div>
                 </div>
-                <div id="cpu-temp-container" class="mt-2 text-xs text-slate-500 hidden">
-                    <span id="cpu-temp" class="text-orange-400">--°C</span>
+
+                <div class="card rounded-lg p-5 fade-in">
+                    <div class="flex justify-between items-baseline mb-3">
+                        <span class="text-sm font-semibold text-neutral-900">Disk</span>
+                        <div class="text-right">
+                            <span id="disk-used" class="text-2xl font-bold tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">/ <span id="disk-total">-- GB</span></span>
+                        </div>
+                    </div>
+                    <div class="progress-bar h-1 rounded-full overflow-hidden mb-2">
+                        <div id="disk-bar" class="progress-fill h-full rounded-full" style="width: 0%"></div>
+                    </div>
+                    <div class="text-xs text-neutral-400 text-right"><span id="disk-percent">--</span>% used · <span id="disk-free">--</span> GB free</div>
                 </div>
             </div>
+        </section>
 
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">RAM</div>
+        <section class="mb-12">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Network</h2>
+            <div class="card rounded-lg p-6 fade-in">
+                <div class="flex justify-between mb-6">
+                    <div>
+                        <div class="text-xs text-neutral-400 uppercase tracking-wider mb-1">Inbound</div>
+                        <div>
+                            <span id="net-rx-value" class="text-2xl font-bold text-green-600 tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">MB/s</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-neutral-400 uppercase tracking-wider mb-1">Outbound</div>
+                        <div>
+                            <span id="net-tx-value" class="text-2xl font-bold text-neutral-900 tabular-nums">--</span>
+                            <span class="text-sm text-neutral-400">MB/s</span>
+                        </div>
+                    </div>
                 </div>
-                <div class="flex items-end gap-1">
-                    <span id="ram-value" class="text-2xl font-bold text-violet-400">--</span>
-                    <span class="text-slate-500 text-xs mb-0.5">/</span>
-                    <span id="ram-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
-                </div>
-                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div id="ram-bar" class="h-full bg-gradient-to-r from-violet-500 to-violet-400 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <div class="mt-1 text-xs text-slate-500"><span id="ram-percent">--</span>% used</div>
-            </div>
-
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">SWAP</div>
-                </div>
-                <div class="flex items-end gap-1">
-                    <span id="swap-value" class="text-2xl font-bold text-orange-400">--</span>
-                    <span class="text-slate-500 text-xs mb-0.5">/</span>
-                    <span id="swap-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
-                </div>
-                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div id="swap-bar" class="h-full bg-gradient-to-r from-orange-500 to-orange-400 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <div class="mt-1 text-xs text-slate-500"><span id="swap-percent">--</span>% used</div>
-            </div>
-
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">Disk</div>
-                </div>
-                <div class="flex items-end gap-1">
-                    <span id="disk-used" class="text-2xl font-bold text-emerald-400">--</span>
-                    <span class="text-slate-500 text-xs mb-0.5">/</span>
-                    <span id="disk-total" class="text-slate-400 text-sm mb-0.5">-- GB</span>
-                </div>
-                <div class="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div id="disk-bar" class="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
-                </div>
-                <div class="mt-1 text-xs text-slate-500"><span id="disk-percent">--</span>% used · <span id="disk-free">--</span> GB free</div>
-            </div>
-
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">Processes</div>
-                </div>
-                <div class="flex items-end gap-2">
-                    <span id="processes-value" class="text-3xl font-bold text-amber-400">--</span>
-                </div>
-                <div class="mt-2 text-xs text-slate-500">Active processes</div>
-            </div>
-
-            <div class="glass rounded-xl p-4 glow">
-                <div class="flex items-center gap-2 mb-1">
-                    <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                    </svg>
-                    <div class="text-xs text-slate-400 uppercase tracking-wider">Uptime</div>
-                </div>
-                <div class="flex items-end gap-2">
-                    <span id="uptime-value" class="text-3xl font-bold text-rose-400">--</span>
-                </div>
-                <div class="mt-2 text-xs text-slate-500" id="uptime-detail">--</div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <div class="glass rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4">Network Traffic (MB/s)</h2>
-                <div class="h-48">
+                <div class="h-40">
                     <canvas id="network-chart"></canvas>
                 </div>
-                <div class="flex justify-around mt-4 pt-4 border-t border-slate-700">
-                    <div class="text-center">
-                        <div class="text-xs text-slate-400 uppercase mb-1">Inbound</div>
-                        <div class="flex items-center justify-center gap-2">
-                            <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
-                            </svg>
-                            <span id="net-rx-value" class="text-xl font-bold text-green-400">--</span>
-                            <span class="text-slate-500 text-sm">MB/s</span>
-                        </div>
-                    </div>
-                    <div class="text-center">
-                        <div class="text-xs text-slate-400 uppercase mb-1">Outbound</div>
-                        <div class="flex items-center justify-center gap-2">
-                            <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                            </svg>
-                            <span id="net-tx-value" class="text-xl font-bold text-blue-400">--</span>
-                            <span class="text-slate-500 text-sm">MB/s</span>
-                        </div>
-                    </div>
-                </div>
             </div>
+        </section>
 
-            <div class="glass rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4">Memory & SWAP Usage</h2>
-                <div class="h-48">
-                    <canvas id="memory-chart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-            <div class="glass rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4">System Activity</h2>
-                <div class="h-48">
+        <section class="mb-12">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Activity</h2>
+            <div class="card rounded-lg p-6 fade-in mb-4">
+                <h3 class="text-sm font-semibold text-neutral-900 mb-4">CPU & Memory</h3>
+                <div class="h-40">
                     <canvas id="system-chart"></canvas>
                 </div>
             </div>
-
-            <div class="glass rounded-xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                    </svg>
-                    Top 5 Processes (by CPU)
-                </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr class="text-slate-400 text-left border-b border-slate-700">
-                                <th class="pb-2 font-medium">Process</th>
-                                <th class="pb-2 font-medium text-right">CPU %</th>
-                                <th class="pb-2 font-medium text-right">RAM (MB)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="processes-table">
-                            <tr><td colspan="3" class="py-4 text-center text-slate-500">Loading...</td></tr>
-                        </tbody>
-                    </table>
+            <div class="card rounded-lg p-6 fade-in">
+                <h3 class="text-sm font-semibold text-neutral-900 mb-4">Memory & Swap History</h3>
+                <div class="h-40">
+                    <canvas id="memory-chart"></canvas>
                 </div>
             </div>
-        </div>
+        </section>
+
+        <section class="mb-12">
+            <h2 class="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-4">Processes</h2>
+            <div class="card rounded-lg p-6 fade-in">
+                <div class="flex justify-between items-baseline mb-4">
+                    <h3 class="text-sm font-semibold text-neutral-900">Top 5 by CPU</h3>
+                    <div class="text-xs text-neutral-400">
+                        <span id="processes-value" class="font-semibold">--</span> total
+                    </div>
+                </div>
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="border-b border-neutral-200">
+                            <th class="pb-2 text-left text-xs font-medium text-neutral-400 uppercase tracking-wider">Process</th>
+                            <th class="pb-2 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">CPU</th>
+                            <th class="pb-2 text-right text-xs font-medium text-neutral-400 uppercase tracking-wider">RAM</th>
+                        </tr>
+                    </thead>
+                    <tbody id="processes-table">
+                        <tr><td colspan="3" class="py-4 text-center text-neutral-400">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <footer class="text-center pt-8 border-t border-neutral-200">
+            <p class="text-xs text-neutral-400">Uptime: <span id="uptime-value" class="font-semibold text-neutral-600">--</span></p>
+            <p id="uptime-detail" class="text-xs text-neutral-400 mt-1">--</p>
+        </footer>
     </div>
 
     <script>
@@ -235,13 +222,13 @@
                 x: { display: false },
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(148, 163, 184, 0.1)' },
-                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                    grid: { color: '#F5F5F5', drawBorder: false },
+                    ticks: { color: '#A3A3A3', font: { size: 10, family: 'Plus Jakarta Sans' } }
                 }
             },
             plugins: {
                 legend: {
-                    labels: { color: '#94a3b8', font: { size: 11 } }
+                    labels: { color: '#737373', font: { size: 11, family: 'Plus Jakarta Sans' }, boxWidth: 12, padding: 16 }
                 }
             }
         };
@@ -255,11 +242,12 @@
                     datasets: [{
                         label: 'CPU %',
                         data: [],
-                        borderColor: '#22d3ee',
-                        backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                        borderColor: '#171717',
+                        backgroundColor: 'rgba(23, 23, 23, 0.05)',
                         tension: 0.3,
                         fill: true,
-                        pointRadius: 0
+                        pointRadius: 0,
+                        borderWidth: 1.5
                     }]
                 },
                 options: {
@@ -280,20 +268,22 @@
                         {
                             label: 'Inbound',
                             data: [],
-                            borderColor: '#4ade80',
-                            backgroundColor: 'rgba(74, 222, 128, 0.1)',
+                            borderColor: '#22C55E',
+                            backgroundColor: 'rgba(34, 197, 94, 0.05)',
                             tension: 0.3,
                             fill: true,
-                            pointRadius: 0
+                            pointRadius: 0,
+                            borderWidth: 1.5
                         },
                         {
                             label: 'Outbound',
                             data: [],
-                            borderColor: '#60a5fa',
-                            backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                            borderColor: '#171717',
+                            backgroundColor: 'rgba(23, 23, 23, 0.05)',
                             tension: 0.3,
                             fill: true,
-                            pointRadius: 0
+                            pointRadius: 0,
+                            borderWidth: 1.5
                         }
                     ]
                 },
@@ -309,20 +299,22 @@
                         {
                             label: 'RAM GB',
                             data: [],
-                            borderColor: '#a78bfa',
-                            backgroundColor: 'rgba(167, 139, 250, 0.1)',
+                            borderColor: '#171717',
+                            backgroundColor: 'rgba(23, 23, 23, 0.05)',
                             tension: 0.3,
                             fill: true,
-                            pointRadius: 0
+                            pointRadius: 0,
+                            borderWidth: 1.5
                         },
                         {
                             label: 'SWAP GB',
                             data: [],
-                            borderColor: '#fb923c',
-                            backgroundColor: 'rgba(251, 146, 60, 0.1)',
+                            borderColor: '#A3A3A3',
+                            backgroundColor: 'rgba(163, 163, 163, 0.05)',
                             tension: 0.3,
                             fill: true,
-                            pointRadius: 0
+                            pointRadius: 0,
+                            borderWidth: 1.5
                         }
                     ]
                 },
@@ -341,13 +333,21 @@
             return str;
         }
 
-        function truncateName(name, maxLen = 20) {
+        function truncateName(name, maxLen = 24) {
             return name.length > maxLen ? name.substring(0, maxLen) + '...' : name;
+        }
+
+        function getProgressBarClass(value) {
+            if (value >= 90) return 'danger';
+            if (value >= 70) return 'warning';
+            return '';
         }
 
         function updateGauges(data) {
             document.getElementById('cpu-value').textContent = data.cpu_percent.toFixed(1);
-            document.getElementById('cpu-bar').style.width = `${Math.min(data.cpu_percent, 100)}%`;
+            const cpuBar = document.getElementById('cpu-bar');
+            cpuBar.style.width = `${Math.min(data.cpu_percent, 100)}%`;
+            cpuBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.cpu_percent)}`;
 
             if (data.cpu_temp_celsius !== null && data.cpu_temp_celsius !== undefined) {
                 document.getElementById('cpu-temp').textContent = `${data.cpu_temp_celsius.toFixed(1)}°C`;
@@ -357,18 +357,24 @@
             document.getElementById('ram-value').textContent = data.ram_used_gb.toFixed(2);
             document.getElementById('ram-total').textContent = `${data.ram_total_gb.toFixed(1)} GB`;
             document.getElementById('ram-percent').textContent = data.ram_percent.toFixed(1);
-            document.getElementById('ram-bar').style.width = `${Math.min(data.ram_percent, 100)}%`;
+            const ramBar = document.getElementById('ram-bar');
+            ramBar.style.width = `${Math.min(data.ram_percent, 100)}%`;
+            ramBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.ram_percent)}`;
 
             document.getElementById('swap-value').textContent = data.swap_used_gb.toFixed(2);
             document.getElementById('swap-total').textContent = data.swap_total_gb > 0 ? `${data.swap_total_gb.toFixed(1)} GB` : '0 GB';
             document.getElementById('swap-percent').textContent = data.swap_percent.toFixed(1);
-            document.getElementById('swap-bar').style.width = `${Math.min(data.swap_percent, 100)}%`;
+            const swapBar = document.getElementById('swap-bar');
+            swapBar.style.width = `${Math.min(data.swap_percent, 100)}%`;
+            swapBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.swap_percent)}`;
 
             document.getElementById('disk-used').textContent = data.disk_used_gb.toFixed(1);
             document.getElementById('disk-total').textContent = `${data.disk_total_gb.toFixed(0)} GB`;
             document.getElementById('disk-percent').textContent = data.disk_percent.toFixed(1);
             document.getElementById('disk-free').textContent = data.disk_free_gb.toFixed(1);
-            document.getElementById('disk-bar').style.width = `${Math.min(data.disk_percent, 100)}%`;
+            const diskBar = document.getElementById('disk-bar');
+            diskBar.style.width = `${Math.min(data.disk_percent, 100)}%`;
+            diskBar.className = `progress-fill h-full rounded-full ${getProgressBarClass(data.disk_percent)}`;
 
             document.getElementById('processes-value').textContent = data.processes;
 
@@ -380,10 +386,10 @@
             const tbody = document.getElementById('processes-table');
             if (data.top_processes && data.top_processes.length > 0) {
                 tbody.innerHTML = data.top_processes.map((p, i) => `
-                    <tr class="border-b border-slate-700/50 ${i < data.top_processes.length - 1 ? '' : ''}">
-                        <td class="py-2 text-slate-200">${truncateName(p.name)}</td>
-                        <td class="py-2 text-right text-cyan-400 font-mono">${p.cpu_percent.toFixed(1)}%</td>
-                        <td class="py-2 text-right text-violet-400 font-mono">${p.ram_mb.toFixed(0)}</td>
+                    <tr class="border-b border-neutral-100 last:border-0">
+                        <td class="py-3 text-neutral-900">${truncateName(p.name)}</td>
+                        <td class="py-3 text-right font-mono text-neutral-600">${p.cpu_percent.toFixed(1)}%</td>
+                        <td class="py-3 text-right font-mono text-neutral-400">${p.ram_mb.toFixed(0)} MB</td>
                     </tr>
                 `).join('');
             }

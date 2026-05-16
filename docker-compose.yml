@@ -1,10 +1,10 @@
 services:
-  rust-exporter:
+  system-estv:
     build:
-      context: ./rust-exporter
+      context: ./system-estv
       args:
         GIT_HASH: ${GIT_HASH:-unknown}
-    container_name: rust-exporter
+    container_name: system-estv
     restart: unless-stopped
     network_mode: host
     volumes:

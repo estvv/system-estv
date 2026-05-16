@@ -8,7 +8,6 @@ ENV GIT_HASH=$GIT_HASH
 WORKDIR /app
 
 COPY Cargo.toml ./
-COPY build.rs ./
 COPY src ./src
 COPY static ./static
 

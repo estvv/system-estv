@@ -2,8 +2,6 @@ services:
   system-estv:
     build:
       context: ./system-estv
-      args:
-        GIT_HASH: ${GIT_HASH:-unknown}
     container_name: system-estv
     restart: unless-stopped
     network_mode: host

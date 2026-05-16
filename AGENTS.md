@@ -48,14 +48,6 @@ curl http://127.0.0.1:8080/            # Dashboard HTML
 ### Before Committing
 
 ```bash
-# Build with git hash
-GIT_HASH=$(git rev-parse --short HEAD) docker compose build && docker compose up -d
-curl http://127.0.0.1:8080/health             # Verify exporter works
-```
-
-Or for Rust changes:
-
-```bash
 cd rust-exporter && cargo test && cargo clippy
 ```
 
@@ -92,7 +84,6 @@ Chart.js renders live charts
 | `rust-exporter/src/state.rs` | AppState, LiveMetrics, History structs |
 | `rust-exporter/src/handlers.rs` | HTTP handlers (/, /api/metrics, /health) |
 | `rust-exporter/static/index.html` | Embedded frontend (Tailwind + Chart.js) |
-| `rust-exporter/build.rs` | Build script to embed git commit hash |
 | `rust-exporter/Cargo.toml` | Rust dependencies (axum, sysinfo, serde) |
 | `rust-exporter/Dockerfile` | Multi-stage musl build |
 | `docker-compose.yml` | Single service with network_mode: host |

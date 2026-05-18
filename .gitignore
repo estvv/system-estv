@@ -18,3 +18,5 @@ Thumbs.db
 
 # Docker volumes (if bind mounts used)
 data/
+
+Makefile

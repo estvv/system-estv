@@ -4,7 +4,14 @@ services:
       context: ./system-estv
     container_name: system-estv
     restart: unless-stopped
-    network_mode: host
+    expose:
+      - "8080"
     volumes:
       - /proc:/proc:ro
       - /sys:/sys:ro
+    networks:
+      - caddy_net
+
+networks:
+  caddy_net:
+    external: true
